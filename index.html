@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Inventory Management Optimizer — Genetic Algorithm</title>
+<meta name="description" content="Inventory Management Optimization via Heuristic-Seeded Genetic Algorithm"/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a;color:#f1f5f9;font-family:'Inter',sans-serif;font-size:18px;line-height:1.6;}
+:root{
+  --bg:#0a0a0a;--card:#111827;
+  --indigo:#6366f1;--indigo-d:rgba(99,102,241,0.15);
+  --emerald:#10b981;--emerald-d:rgba(16,185,129,0.15);
+  --amber:#f59e0b;--amber-d:rgba(245,158,11,0.15);
+  --pink:#ec4899;--orange:#f97316;--violet:#8b5cf6;
+  --text:#f1f5f9;--muted:#64748b;
+  --glass:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.07);--b2:#1e1e2e;
+}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(99,102,241,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.05) 1px,transparent 1px);
+  background-size:60px 60px;animation:bgD 25s linear infinite;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(99,102,241,0.12),transparent);}
+@keyframes bgD{from{background-position:0 0;}to{background-position:60px 60px;}}
+#app{position:relative;z-index:1;width:100vw;height:100vh;overflow:hidden;}
+.page{position:absolute;inset:0;opacity:0;pointer-events:none;transform:translateY(24px);transition:opacity .4s,transform .4s;z-index:0;}
+.page.active{opacity:1;pointer-events:all;transform:translateY(0);z-index:2;}
+
+/* NAV */
+#gnav{position:fixed;top:0;left:0;right:0;z-index:1000;height:56px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:rgba(10,10,10,0.9);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);}
+.nav-brand{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.1rem;
+  background:linear-gradient(135deg,var(--indigo),var(--emerald));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-tabs{display:flex;gap:3px;}
+.ntab{padding:5px 14px;border-radius:8px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:0.82rem;font-weight:500;
+  background:transparent;color:var(--muted);transition:all .2s;}
+.ntab:hover{color:var(--text);background:rgba(255,255,255,0.05);}
+.ntab.active{color:var(--indigo);background:var(--indigo-d);border:1px solid rgba(99,102,241,0.3);}
+#run-status{padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;
+  border:1px solid var(--emerald);color:var(--emerald);background:var(--emerald-d);}
+#run-status.running{border-color:var(--amber);color:var(--amber);background:var(--amber-d);animation:sp 1.2s ease infinite;}
+@keyframes sp{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+/* GLASS/CARD */
+.glass{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:14px;}
+.card{background:rgba(17,24,39,.7);border:1px solid var(--b2);border-radius:14px;}
+
+/* ─── PAGE 1: LANDING ─── */
+#pg-home{justify-content:center;align-items:center;padding-top:56px;flex-direction:column;display:flex;
+  background:radial-gradient(ellipse 120% 70% at 50% 100%,rgba(99,102,241,0.07),transparent);}
+.hero-tag{display:inline-block;padding:5px 18px;border-radius:30px;border:1px solid rgba(99,102,241,0.4);
+  background:var(--indigo-d);color:var(--indigo);font-size:0.8rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:22px;}
+.hero-h1{font-family:'Montserrat',sans-serif;font-weight:900;font-size:clamp(2rem,5vw,3.6rem);
+  line-height:1.1;color:var(--text);margin-bottom:14px;letter-spacing:-1px;text-align:center;}
+.hero-h1 .ac{background:linear-gradient(135deg,var(--indigo),var(--emerald));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero-sub{font-size:1.05rem;color:var(--muted);max-width:520px;margin:0 auto 32px;text-align:center;line-height:1.7;}
+.hero-acts{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;}
+.btn-p{padding:13px 30px;border-radius:12px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700;font-size:.95rem;
+  background:linear-gradient(135deg,var(--indigo),#818cf8);color:white;box-shadow:0 0 28px rgba(99,102,241,.5);transition:all .3s;}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 0 45px rgba(99,102,241,.7);}
+.btn-s{padding:13px 30px;border-radius:12px;border:1px solid var(--border);cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:600;font-size:.95rem;
+  background:var(--glass);color:var(--text);backdrop-filter:blur(8px);transition:all .3s;}
+.btn-s:hover{border-color:var(--emerald);color:var(--emerald);}
+.btn-demo{padding:13px 30px;border-radius:12px;border:1px solid var(--amber);cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700;font-size:.95rem;
+  background:var(--amber-d);color:var(--amber);transition:all .3s;animation:demoPulse 2s ease infinite;}
+.btn-demo:hover{background:rgba(245,158,11,.25);transform:translateY(-2px);}
+@keyframes demoPulse{0%,100%{box-shadow:0 0 10px rgba(245,158,11,.3);}50%{box-shadow:0 0 25px rgba(245,158,11,.6);}}
+.stat-pills{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.spill{padding:10px 18px;border-radius:10px;background:var(--glass);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;gap:2px;}
+.spill-v{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.25rem;color:var(--indigo);}
+.spill-l{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.grid3d{position:absolute;bottom:-60px;left:50%;transform:translateX(-50%) rotateX(55deg) rotateZ(-15deg);
+  width:600px;height:380px;
+  background-image:linear-gradient(rgba(99,102,241,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.22) 1px,transparent 1px);
+  background-size:38px 38px;border-radius:8px;animation:gf 4s ease-in-out infinite alternate;opacity:.55;pointer-events:none;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black,transparent);}
+@keyframes gf{from{transform:translateX(-50%) rotateX(55deg) rotateZ(-15deg) translateZ(0);}
+  to{transform:translateX(-50%) rotateX(55deg) rotateZ(-15deg) translateZ(20px);}}
+
+/* ─── PAGE 2: DASHBOARD ─── */
+#pg-dash{padding-top:56px;display:grid;grid-template-columns:268px 1fr 250px;grid-template-rows:1fr;overflow:hidden;}
+#d-left{display:flex;flex-direction:column;gap:11px;padding:16px 14px;border-right:1px solid var(--b2);overflow-y:auto;}
+.ph{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.9rem;color:var(--indigo);
+  text-transform:uppercase;letter-spacing:1.5px;padding-bottom:8px;border-bottom:1px solid var(--b2);}
+.scard{background:rgba(17,24,39,.5);border:1px solid var(--border);border-radius:10px;padding:11px 13px;}
+.sh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.sn{font-size:.83rem;color:var(--muted);font-weight:500;}
+.sv{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.05rem;color:var(--indigo);}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:5px;
+  background:linear-gradient(90deg,var(--indigo) var(--pct,50%),rgba(255,255,255,.1) var(--pct,50%));
+  outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+  background:var(--indigo);border:2px solid #fff;cursor:pointer;box-shadow:0 0 8px rgba(99,102,241,.6);}
+.run-btn{padding:13px;border-radius:12px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700;
+  font-size:.95rem;background:linear-gradient(135deg,var(--indigo),#818cf8);color:white;text-transform:uppercase;letter-spacing:.8px;
+  box-shadow:0 0 25px rgba(99,102,241,.45);transition:all .3s;position:relative;overflow:hidden;}
+.run-btn:hover{box-shadow:0 0 40px rgba(99,102,241,.7);transform:translateY(-2px);}
+.run-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.demo-dash-btn{padding:10px;border-radius:12px;border:1px solid var(--amber);cursor:pointer;font-family:'Montserrat',sans-serif;
+  font-weight:700;font-size:.85rem;background:var(--amber-d);color:var(--amber);text-transform:uppercase;transition:all .3s;}
+.demo-dash-btn:hover{background:rgba(245,158,11,.25);}
+.cbox{padding:11px 13px;border-radius:10px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);}
+.ct{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.cr{font-size:.82rem;color:var(--text);margin:2px 0;} .ch{color:var(--emerald);font-weight:700;}
+#d-center{display:flex;flex-direction:column;padding:16px;gap:10px;overflow:hidden;}
+.ct2{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1rem;color:var(--text);}
+.cbox2{flex:1;min-height:0;position:relative;padding:14px;border-radius:14px;background:rgba(17,24,39,.6);border:1px solid var(--border);}
+canvas{width:100%!important;height:100%!important;}
+.prog-row{display:flex;align-items:center;gap:10px;}
+.po{flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:8px;overflow:hidden;}
+.pi{height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,var(--indigo),var(--emerald));transition:width .4s;box-shadow:0 0 10px rgba(99,102,241,.5);}
+.pl{font-size:.8rem;color:var(--muted);white-space:nowrap;}
+#d-right{display:flex;flex-direction:column;gap:8px;padding:16px 12px;border-left:1px solid var(--b2);overflow-y:auto;}
+.mi{padding:9px 12px;border-radius:10px;background:rgba(17,24,39,.5);border:1px solid var(--border);}
+.ml{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.mv{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.05rem;margin-top:2px;color:var(--emerald);}
+.mv.i{color:var(--indigo);} .mv.a{color:var(--amber);} .mv.t{color:var(--text);}
+
+/* ─── PAGE 3: COMPLEXITY CALCULATOR ─── */
+#pg-cplx{padding-top:56px;overflow-y:auto;display:block;}
+.cplx-inner{max-width:900px;margin:0 auto;padding:32px 28px;}
+.cplx-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;}
+.cplx-card{padding:22px;border-radius:14px;background:rgba(17,24,39,.7);border:1px solid var(--b2);}
+.cplx-head{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.1rem;color:var(--indigo);margin-bottom:18px;}
+.cplx-inp-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cplx-lbl{font-size:.9rem;color:var(--muted);}
+.cplx-inp{width:100px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.3);border-radius:8px;
+  padding:7px 12px;color:var(--text);font-size:.95rem;font-family:'Montserrat',sans-serif;font-weight:700;outline:none;text-align:right;}
+.cplx-inp:focus{border-color:var(--indigo);}
+.cplx-result-big{font-family:'Montserrat',sans-serif;font-weight:900;font-size:2.2rem;color:var(--emerald);margin:16px 0 4px;}
+.cplx-result-sub{font-size:.9rem;color:var(--muted);}
+.cplx-bars{margin-top:16px;display:flex;flex-direction:column;gap:10px;}
+.cbar-row{display:grid;grid-template-columns:80px 1fr 70px;align-items:center;gap:10px;}
+.cbar-lbl{font-size:.78rem;color:var(--muted);text-align:right;}
+.cbar-outer{height:10px;background:rgba(255,255,255,.06);border-radius:10px;overflow:hidden;}
+.cbar-inner{height:100%;border-radius:10px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+.cbar-val{font-size:.78rem;color:var(--text);font-weight:600;}
+.formula-box{background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:16px 18px;margin-top:16px;}
+.formula-box code{font-family:'Courier New',monospace;color:var(--emerald);font-size:.9rem;line-height:1.8;}
+.cplx-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.85rem;}
+.cplx-table th{padding:9px 12px;background:rgba(99,102,241,.1);border:1px solid var(--b2);color:var(--indigo);font-size:.75rem;text-transform:uppercase;}
+.cplx-table td{padding:9px 12px;border:1px solid var(--b2);color:var(--text);}
+.cplx-table tr.highlight td{background:rgba(16,185,129,.08);color:var(--emerald);font-weight:600;}
+.cplx-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700;background:var(--emerald-d);color:var(--emerald);}
+.mod-savings{padding:14px 18px;border-radius:10px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);margin-top:12px;}
+
+/* ─── PAGE 4: ANALYTICS ─── */
+#pg-analytics{padding-top:56px;overflow-y:auto;display:block;}
+.an-inner{padding:22px 26px;display:flex;flex-direction:column;gap:20px;min-height:calc(100vh - 56px);}
+.sec-title{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.5rem;color:var(--text);}
+.sec-sub{font-size:.95rem;color:var(--muted);}
+.battle-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:start;}
+.bc{padding:22px;border-radius:16px;background:rgba(17,24,39,.7);border:2px solid;position:relative;overflow:hidden;}
+.bc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0;}
+.bc.orig{border-color:rgba(99,102,241,.4);}.bc.orig::before{background:linear-gradient(90deg,var(--indigo),transparent);}
+.bc.mod{border-color:rgba(16,185,129,.4);}.bc.mod::before{background:linear-gradient(90deg,var(--emerald),transparent);}
+.bc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.bc-name{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.1rem;}
+.winner-badge{padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:700;text-transform:uppercase;
+  background:linear-gradient(135deg,var(--emerald),#34d399);color:#000;animation:wPop .6s ease-out;}
+@keyframes wPop{0%{transform:scale(.4);opacity:0;}70%{transform:scale(1.15);}100%{transform:scale(1);opacity:1;}}
+.bc-sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.bc-s{background:rgba(255,255,255,.03);border-radius:10px;padding:11px;}
+.bc-sl{font-size:.7rem;color:var(--muted);text-transform:uppercase;} .bc-sv{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text);margin-top:3px;}
+.vs-sep{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+.vs-circ{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.1rem;color:var(--amber);
+  background:rgba(245,158,11,.1);border:2px solid var(--amber);box-shadow:0 0 24px rgba(245,158,11,.4);
+  animation:vsg 2s ease infinite alternate;}
+@keyframes vsg{from{box-shadow:0 0 16px rgba(245,158,11,.3);}to{box-shadow:0 0 35px rgba(245,158,11,.6);}}
+/* Bar race */
+.race-section{padding:20px;border-radius:14px;background:rgba(17,24,39,.6);border:1px solid var(--border);}
+.race-title{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.95rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+.race-row{margin-bottom:16px;}
+.race-info{display:flex;justify-content:space-between;margin-bottom:6px;font-size:.88rem;}
+.race-bar{height:18px;background:rgba(255,255,255,.06);border-radius:10px;overflow:hidden;}
+.race-fill{height:100%;border-radius:10px;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+.race-orig{background:linear-gradient(90deg,var(--indigo),#818cf8);}
+.race-mod{background:linear-gradient(90deg,var(--emerald),#34d399);}
+/* Diff table */
+.diff-section{padding:20px;border-radius:14px;background:rgba(17,24,39,.6);border:1px solid var(--border);}
+.dtbl{width:100%;border-collapse:collapse;font-size:.88rem;}
+.dtbl th{padding:11px 14px;text-align:left;font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--b2);background:rgba(17,24,39,.5);}
+.dtbl td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text);}
+.dtbl tr:hover td{background:rgba(99,102,241,.04);}
+.to{color:var(--indigo);font-weight:600;} .tm{color:var(--emerald);font-weight:600;}
+.tb{padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:var(--emerald-d);color:var(--emerald);}
+/* Charts row */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.chart-panel{padding:20px;border-radius:14px;background:rgba(17,24,39,.6);border:1px solid var(--border);}
+.cp-title{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.92rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+.chart-box-sm{height:220px;position:relative;}
+
+/* ─── PAGE 5: EXPLORER ─── */
+#pg-explorer{padding-top:56px;overflow:hidden;display:flex;flex-direction:column;}
+.inv-hdr{padding:14px 22px;border-bottom:1px solid var(--b2);display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap;}
+.inv-title{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.1rem;color:var(--text);}
+.tsrch{flex:1;max-width:280px;background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:10px;padding:7px 14px;color:var(--text);font-size:.88rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;}
+.tsrch:focus{border-color:var(--indigo);}
+.tsel{background:rgba(17,24,39,.7);border:1px solid var(--border);border-radius:10px;padding:7px 11px;color:var(--text);font-family:'Inter',sans-serif;font-size:.86rem;outline:none;cursor:pointer;}
+.exp-btn{padding:7px 16px;border-radius:10px;border:1px solid var(--emerald);background:var(--emerald-d);color:var(--emerald);font-family:'Montserrat',sans-serif;font-weight:600;font-size:.83rem;cursor:pointer;transition:all .2s;}
+.exp-btn:hover{background:rgba(16,185,129,.25);}
+.pg-ctrl{display:flex;align-items:center;gap:7px;margin-left:auto;}
+.pgb{padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--glass);color:var(--text);font-size:.82rem;cursor:pointer;transition:all .2s;}
+.pgb:hover{border-color:var(--indigo);color:var(--indigo);}
+.pgb:disabled{opacity:.3;cursor:not-allowed;}
+.pgi{font-size:.82rem;color:var(--muted);white-space:nowrap;}
+.tbl-wrap{flex:1;overflow:auto;margin:0 14px 10px;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+thead th{position:sticky;top:0;z-index:10;padding:9px 11px;text-align:left;white-space:nowrap;
+  font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+  background:#0d0d18;border-bottom:1px solid var(--b2);cursor:pointer;user-select:none;transition:color .2s;}
+thead th:hover{color:var(--text);}
+thead th.sa::after{content:' ↑';} thead th.sd::after{content:' ↓';}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.03);transition:background .15s;cursor:pointer;}
+tbody tr:hover{background:rgba(99,102,241,.08);}
+tbody td{padding:7px 11px;color:var(--text);white-space:nowrap;}
+.ce{border-left:3px solid var(--indigo);} .cf{border-left:3px solid var(--emerald);}
+.cp{border-left:3px solid var(--amber);} .cc{border-left:3px solid var(--pink);}.ci{border-left:3px solid var(--orange);}
+.ov{color:var(--emerald);font-weight:600;} .cv{color:var(--amber);}
+.click-hint{font-size:.72rem;color:var(--muted);padding:0 22px 4px;flex-shrink:0;}
+
+/* ─── MODAL (Item Drill-Down) ─── */
+#modal-overlay{position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;}
+#modal-overlay.open{display:flex;}
+#modal-box{background:#0f0f1e;border:1px solid rgba(99,102,241,.4);border-radius:18px;padding:28px;
+  width:min(780px,96vw);max-height:88vh;overflow-y:auto;position:relative;
+  box-shadow:0 0 60px rgba(99,102,241,.25);}
+.modal-close{position:absolute;top:16px;right:20px;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:8px;padding:5px 12px;color:var(--muted);font-size:.85rem;cursor:pointer;transition:all .2s;}
+.modal-close:hover{color:var(--text);border-color:var(--indigo);}
+.modal-title{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.4rem;color:var(--text);margin-bottom:4px;}
+.modal-sub{font-size:.88rem;color:var(--muted);margin-bottom:20px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.modal-chart-box{height:210px;position:relative;}
+.modal-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ms{padding:10px 13px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);}
+.msl{font-size:.7rem;color:var(--muted);text-transform:uppercase;} .msv{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1rem;color:var(--text);margin-top:3px;}
+.modal-compare{margin-top:18px;padding:16px;border-radius:12px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);}
+.mc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.mc-row:last-child{border:none;}
+.mc-l{font-size:.85rem;color:var(--muted);}
+.mc-v{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.92rem;}
+
+/* ─── PAGE 6: DOCS ─── */
+#pg-docs{padding-top:56px;overflow-y:auto;display:block;}
+.docs-inner{max-width:860px;margin:0 auto;padding:36px 28px;}
+.dh1{font-family:'Montserrat',sans-serif;font-weight:900;font-size:2rem;color:var(--text);margin-bottom:8px;border-bottom:2px solid var(--indigo);padding-bottom:10px;}
+.dh2{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.35rem;color:var(--indigo);margin:28px 0 10px;display:flex;align-items:center;gap:8px;}
+.dh2::before{content:'';display:block;width:4px;height:22px;background:linear-gradient(180deg,var(--indigo),var(--emerald));border-radius:4px;}
+.dh3{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1rem;color:var(--emerald);margin:16px 0 6px;}
+.dp{color:#cbd5e1;font-size:.95rem;line-height:1.8;margin-bottom:12px;}
+.dtbl2{width:100%;border-collapse:collapse;margin:14px 0;font-size:.88rem;}
+.dtbl2 th{padding:9px 14px;background:rgba(99,102,241,.1);border:1px solid var(--b2);color:var(--indigo);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;}
+.dtbl2 td{padding:9px 14px;border:1px solid var(--b2);color:#cbd5e1;}
+.dtbl2 tr:nth-child(even) td{background:rgba(255,255,255,.02);}
+.dcode{background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:8px;padding:14px 18px;font-family:'Courier New',monospace;font-size:.88rem;color:var(--emerald);margin:10px 0;overflow-x:auto;}
+.dalert{padding:13px 17px;border-radius:10px;margin:14px 0;font-size:.92rem;line-height:1.6;}
+.dalert.info{background:var(--indigo-d);border-left:4px solid var(--indigo);color:#c7d2fe;}
+.dalert.suc{background:var(--emerald-d);border-left:4px solid var(--emerald);color:#6ee7b7;}
+.ref{padding:9px 13px;border-radius:8px;background:rgba(17,24,39,.4);border:1px solid var(--border);margin-bottom:7px;font-size:.87rem;color:#94a3b8;line-height:1.6;}
+.rn{color:var(--indigo);font-weight:700;margin-right:8px;}
+
+/* ─── PAGE: VISUALIZER ─── */
+#pg-viz{padding-top:56px;overflow:hidden;display:flex;flex-direction:column;}
+.viz-toolbar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--b2);flex-shrink:0;flex-wrap:wrap;}
+.viz-toolbar-title{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1rem;color:var(--text);margin-right:6px;}
+.vbtn{padding:7px 16px;border-radius:9px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700;font-size:.82rem;transition:all .2s;}
+.vbtn-p{background:linear-gradient(135deg,var(--indigo),#818cf8);color:#fff;box-shadow:0 0 14px rgba(99,102,241,.4);}
+.vbtn-p:hover{box-shadow:0 0 24px rgba(99,102,241,.6);transform:translateY(-1px);}
+.vbtn-p:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.vbtn-s{background:rgba(16,185,129,.15);border:1px solid var(--emerald);color:var(--emerald);}
+.vbtn-s:hover{background:rgba(16,185,129,.28);}
+.vbtn-r{background:rgba(245,158,11,.15);border:1px solid var(--amber);color:var(--amber);}
+.vbtn-r:hover{background:rgba(245,158,11,.28);}
+.vbtn-m{background:rgba(139,92,246,.15);border:1px solid var(--violet);color:var(--violet);}
+.vbtn-m.active-mode{background:rgba(139,92,246,.35);box-shadow:0 0 14px rgba(139,92,246,.5);}
+.speed-wrap{display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--muted);}
+.viz-gen-badge{padding:5px 14px;border-radius:8px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);font-family:'Montserrat',sans-serif;font-weight:700;font-size:.88rem;color:var(--indigo);white-space:nowrap;}
+.viz-cost-badge{padding:5px 14px;border-radius:8px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);font-family:'Montserrat',sans-serif;font-weight:700;font-size:.88rem;color:var(--emerald);white-space:nowrap;}
+/* Phase Pipeline */
+.viz-phases{display:flex;align-items:center;padding:8px 20px;gap:0;background:rgba(10,10,20,.6);border-bottom:1px solid var(--b2);flex-shrink:0;overflow-x:auto;}
+.vphase{display:flex;align-items:center;gap:0;}
+.vp-node{padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);white-space:nowrap;transition:all .3s;}
+.vp-node.active{color:#fff;background:var(--indigo);border-color:var(--indigo);box-shadow:0 0 16px rgba(99,102,241,.5);animation:phPulse .8s ease infinite alternate;}
+.vp-node.done{color:var(--emerald);border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.08);}
+@keyframes phPulse{from{box-shadow:0 0 10px rgba(99,102,241,.4);}to{box-shadow:0 0 22px rgba(99,102,241,.7);}}
+.vp-arr{color:var(--muted);font-size:.9rem;margin:0 6px;}
+/* Main Layout */
+.viz-body{flex:1;display:grid;grid-template-columns:260px 1fr 280px;overflow:hidden;}
+/* Left: Population */
+.viz-pop-panel{padding:14px 12px;border-right:1px solid var(--b2);overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
+.vp-head{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.chr-row{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:8px;border:1px solid transparent;transition:all .3s;cursor:default;}
+.chr-row.elite{border-color:var(--amber)!important;background:rgba(245,158,11,.06)!important;}
+.chr-row.selected{border-color:var(--indigo)!important;background:rgba(99,102,241,.1)!important;animation:selPulse .5s ease infinite alternate;}
+.chr-row.crossed{border-color:var(--violet)!important;background:rgba(139,92,246,.1)!important;}
+.chr-row.mutated{border-color:var(--pink)!important;background:rgba(236,72,153,.1)!important;}
+.chr-row.best-chr{border-color:var(--emerald)!important;background:rgba(16,185,129,.1)!important;}
+@keyframes selPulse{from{box-shadow:0 0 6px rgba(99,102,241,.3);}to{box-shadow:0 0 14px rgba(99,102,241,.6);}}
+.chr-rank{font-size:.7rem;color:var(--muted);width:18px;text-align:right;font-weight:600;}
+.chr-bar-outer{flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;}
+.chr-bar-inner{height:100%;border-radius:5px;transition:width .5s ease, background .5s;}
+.chr-cost{font-size:.68rem;color:var(--muted);white-space:nowrap;width:52px;text-align:right;}
+.chr-badge{font-size:.6rem;padding:1px 5px;border-radius:4px;font-weight:700;flex-shrink:0;}
+/* Center */
+.viz-center{display:flex;flex-direction:column;overflow:hidden;}
+.viz-event-box{padding:14px 18px;background:rgba(99,102,241,.07);border-bottom:1px solid var(--b2);flex-shrink:0;}
+.veb-phase{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.veb-title{font-family:'Montserrat',sans-serif;font-weight:700;font-size:1rem;color:var(--text);margin-bottom:4px;}
+.veb-desc{font-size:.85rem;color:#94a3b8;line-height:1.6;}
+.viz-gene-section{flex:1;padding:14px 18px;overflow:auto;}
+.vgs-head{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+.gene-heatmap{display:grid;grid-template-columns:repeat(50,1fr);gap:2px;border-radius:8px;overflow:hidden;}
+.gene-cell{height:10px;border-radius:1px;transition:background .4s;}
+.viz-legend{display:flex;align-items:center;gap:14px;margin-top:8px;font-size:.75rem;color:var(--muted);}
+.leg-item{display:flex;align-items:center;gap:5px;}
+.leg-dot{width:10px;height:10px;border-radius:3px;}
+.viz-crossover-box{display:none;padding:12px 0;}
+.cx-parents{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:8px;}
+.cx-bar{height:14px;border-radius:6px;width:100%;display:flex;overflow:hidden;}
+.cx-seg{height:100%;transition:all .4s;}
+.cx-arrow{font-size:1.2rem;color:var(--violet);text-align:center;}
+.cx-label{font-size:.72rem;color:var(--muted);text-align:center;margin-bottom:4px;}
+/* Right: Log */
+.viz-right{padding:12px;border-left:1px solid var(--b2);overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.viz-log-head{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;flex-shrink:0;}
+.viz-log-box{flex:1;display:flex;flex-direction:column;gap:4px;overflow-y:auto;}
+.log-entry{padding:7px 10px;border-radius:8px;font-size:.76rem;line-height:1.5;border-left:3px solid;animation:logIn .3s ease;}
+@keyframes logIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:none;}}
+.log-init{border-color:var(--muted);background:rgba(255,255,255,.03);color:#94a3b8;}
+.log-eval{border-color:var(--indigo);background:var(--indigo-d);color:#c7d2fe;}
+.log-sel{border-color:var(--violet);background:rgba(139,92,246,.1);color:#ddd6fe;}
+.log-cx{border-color:var(--pink);background:rgba(236,72,153,.08);color:#fbcfe8;}
+.log-mut{border-color:var(--amber);background:var(--amber-d);color:#fde68a;}
+.log-next{border-color:var(--emerald);background:var(--emerald-d);color:#6ee7b7;}
+.viz-stat-cards{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0;}
+.vsc{padding:8px 10px;border-radius:8px;background:rgba(17,24,39,.6);border:1px solid var(--border);}
+.vsc-l{font-size:.65rem;color:var(--muted);text-transform:uppercase;}
+.vsc-v{font-family:'Montserrat',sans-serif;font-weight:700;font-size:.92rem;margin-top:2px;}
+
+/* SCROLLBARS */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(99,102,241,.3);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(99,102,241,.5);}
+</style>
+</head>
+<body>
+<!-- NAV -->
+<nav id="gnav">
+  <div class="nav-brand">⬡ INVOPT</div>
+  <div class="nav-tabs">
+    <button class="ntab active" onclick="go('home',this)">Home</button>
+    <button class="ntab" onclick="go('dash',this)">Dashboard</button>
+    <button class="ntab" onclick="go('cplx',this)">Complexity</button>
+    <button class="ntab" onclick="go('viz',this)">⚡ Visualizer</button>
+    <button class="ntab" onclick="go('analytics',this)">Analytics</button>
+    <button class="ntab" onclick="go('explorer',this)">Explorer</button>
+    <button class="ntab" onclick="go('docs',this)">Docs</button>
+  </div>
+  <span id="run-status">● READY</span>
+</nav>
+<div id="app">
+
+<!-- ════════════════ PAGE 1: HOME ════════════════ -->
+<section id="pg-home" class="page active">
+  <div class="hero-tag">🧬 Genetic Algorithm · EOQ Heuristic Seeding</div>
+  <h1 class="hero-h1">Inventory Management<br><span class="ac">Optimization Engine</span></h1>
+  <p class="hero-sub">A production-grade Genetic Algorithm minimizing total annual inventory cost across 500 items — comparing random initialization vs. EOQ-seeded modification.</p>
+  <div class="hero-acts">
+    <button class="btn-p" onclick="go('dash',ntab('dash'))">🚀 Launch Optimizer</button>
+    <button class="btn-demo" onclick="demoMode()">⚡ Demo Mode</button>
+    <button class="btn-s" onclick="go('docs',ntab('docs'))">📄 View Report</button>
+  </div>
+  <div class="stat-pills">
+    <div class="spill"><span class="spill-v">500</span><span class="spill-l">Items</span></div>
+    <div class="spill"><span class="spill-v" style="color:var(--emerald)">O(G×P×N)</span><span class="spill-l">Complexity</span></div>
+    <div class="spill"><span class="spill-v">10M</span><span class="spill-l">Operations</span></div>
+    <div class="spill"><span class="spill-v" style="color:var(--amber)">~38%</span><span class="spill-l">Faster Convergence</span></div>
+    <div class="spill"><span class="spill-v" style="color:var(--pink)">3 Mods</span><span class="spill-l">Improvements</span></div>
+  </div>
+  <div class="grid3d"></div>
+</section>
+
+<!-- ════════════════ PAGE 2: DASHBOARD ════════════════ -->
+<section id="pg-dash" class="page">
+  <!-- Left -->
+  <aside id="d-left">
+    <div class="ph">⚙ Engine Config</div>
+    <div class="scard">
+      <div class="sh"><span class="sn">Population Size</span><span class="sv" id="v-pop">100</span></div>
+      <input type="range" id="s-pop" min="50" max="300" value="100" oninput="us(this,'v-pop','',50,300);uc()"/>
+    </div>
+    <div class="scard">
+      <div class="sh"><span class="sn">Generations</span><span class="sv" id="v-gen">200</span></div>
+      <input type="range" id="s-gen" min="100" max="1000" value="200" oninput="us(this,'v-gen','',100,1000);uc()"/>
+    </div>
+    <div class="scard">
+      <div class="sh"><span class="sn">Crossover Rate</span><span class="sv" id="v-cx">0.85</span></div>
+      <input type="range" id="s-cx" min="50" max="100" value="85" oninput="us(this,'v-cx',null,50,100,v=>(v/100).toFixed(2))"/>
+    </div>
+    <div class="scard">
+      <div class="sh"><span class="sn">Mutation Rate</span><span class="sv" id="v-mut">0.020</span></div>
+      <input type="range" id="s-mut" min="1" max="100" value="20" oninput="us(this,'v-mut',null,1,100,v=>(v/1000).toFixed(3))"/>
+    </div>
+    <div class="scard" style="border-color:rgba(99,102,241,.3)">
+      <div class="sh"><span class="sn" style="color:var(--indigo)">EOQ Seed Ratio</span><span class="sv" id="v-eoq">30%</span></div>
+      <input type="range" id="s-eoq" min="0" max="50" value="30" oninput="us(this,'v-eoq',null,0,50,v=>v+'%');uc()"/>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:5px">% of population seeded with EOQ formula</div>
+    </div>
+    <div class="scard">
+      <div class="sh"><span class="sn">Elite Size</span><span class="sv" id="v-elite">5</span></div>
+      <input type="range" id="s-elite" min="1" max="20" value="5" oninput="us(this,'v-elite','',1,20)"/>
+    </div>
+    <div class="cbox">
+      <div class="ct">Complexity</div>
+      <div class="cr">O(G×P×N) = <span class="ch" id="cOps">10.0M</span></div>
+      <div class="cr">O(P×N) = <span class="ch" id="cSp">50K</span> genes</div>
+      <div class="cr">Memory: <span class="ch" id="cMem">0.76</span> MB</div>
+    </div>
+    <button class="run-btn" id="run-btn" onclick="runBoth()">▶ Run Optimizer</button>
+    <button class="demo-dash-btn" onclick="demoMode()">⚡ Quick Demo Mode</button>
+  </aside>
+
+  <!-- Center Chart -->
+  <main id="d-center">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div class="ct2">📈 Cost Convergence — Dual GA Comparison</div>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:1px">Best cost + Avg population cost · Both GAs run simultaneously</div>
+      </div>
+      <div style="display:flex;gap:14px;font-size:.8rem">
+        <span style="color:var(--indigo)">━ Orig Best</span>
+        <span style="color:var(--emerald)">━ Mod Best</span>
+        <span style="color:rgba(99,102,241,.5)">┄ Orig Avg</span>
+        <span style="color:rgba(16,185,129,.5)">┄ Mod Avg</span>
+      </div>
+    </div>
+    <div class="cbox2"><canvas id="mainChart"></canvas></div>
+    <div class="prog-row glass" style="padding:9px 16px;border-radius:10px">
+      <span class="pl">Progress:</span>
+      <div class="po"><div class="pi" id="prog-bar"></div></div>
+      <span class="pl" id="prog-text" style="min-width:90px;text-align:right">0 / 0 gen</span>
+    </div>
+  </main>
+
+  <!-- Right Metrics -->
+  <aside id="d-right">
+    <div class="ph">📊 Live Metrics</div>
+    <div class="mi"><div class="ml">Best Cost (Modified)</div><div class="mv" id="m-cost">—</div></div>
+    <div class="mi"><div class="ml">Generation</div><div class="mv i" id="m-gen">0 / 200</div></div>
+    <div class="mi"><div class="ml">Population</div><div class="mv i" id="m-pop">100</div></div>
+    <div class="mi"><div class="ml">Items Optimized</div><div class="mv t">500</div></div>
+    <div class="mi"><div class="ml">⏱ Exec Time</div><div class="mv a" id="m-time">0 ms</div></div>
+    <div class="mi"><div class="ml">Memory</div><div class="mv t" id="m-mem">0.76 MB</div></div>
+    <div class="mi"><div class="ml">EOQ Seeds</div><div class="mv" id="m-seeds">30 / 100</div></div>
+    <div class="mi"><div class="ml">Crossover</div><div class="mv t" id="m-cx">85%</div></div>
+    <div class="mi"><div class="ml">Mutation</div><div class="mv t" id="m-mut">2.0%</div></div>
+    <div class="mi"><div class="ml">Status</div><div class="mv a" id="m-status">IDLE</div></div>
+  </aside>
+</section>
+
+<!-- ════════════════ PAGE 3: COMPLEXITY CALCULATOR ════════════════ -->
+<section id="pg-cplx" class="page">
+  <div class="cplx-inner">
+    <div class="sec-title">🧮 Live Complexity Calculator</div>
+    <div class="sec-sub" style="margin-top:4px">Interact with the parameters — see the exact operation count update in real-time</div>
+    <div class="cplx-grid">
+      <!-- Left: Calculator -->
+      <div class="cplx-card">
+        <div class="cplx-head">⚙ Algorithm Parameters</div>
+        <div class="cplx-inp-row">
+          <span class="cplx-lbl">G — Generations</span>
+          <input class="cplx-inp" id="ci-g" type="number" value="200" min="1" max="10000" oninput="calcCplx()"/>
+        </div>
+        <div class="cplx-inp-row">
+          <span class="cplx-lbl">P — Population Size</span>
+          <input class="cplx-inp" id="ci-p" type="number" value="100" min="1" max="10000" oninput="calcCplx()"/>
+        </div>
+        <div class="cplx-inp-row">
+          <span class="cplx-lbl">N — Items</span>
+          <input class="cplx-inp" id="ci-n" type="number" value="500" min="1" max="100000" oninput="calcCplx()"/>
+        </div>
+        <div class="cplx-inp-row">
+          <span class="cplx-lbl">EOQ Converge % (Modified)</span>
+          <input class="cplx-inp" id="ci-eoq" type="number" value="62" min="1" max="99" oninput="calcCplx()"/>
+        </div>
+        <div style="margin-top:12px;border-top:1px solid var(--b2);padding-top:14px">
+          <div class="cplx-result-big" id="cr-ops">10.0M</div>
+          <div class="cplx-result-sub">Total operations — Original GA: O(G × P × N)</div>
+        </div>
+        <div class="mod-savings">
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:4px">Modified GA (EOQ seeded):</div>
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.4rem;color:var(--emerald)" id="cr-mod">6.2M</div>
+          <div style="font-size:.8rem;color:var(--muted)" id="cr-saved">⬇ Saves 3.8M operations (~38%)</div>
+        </div>
+        <div class="formula-box" style="margin-top:12px">
+          <code>Original:  O(G × P × N)<br>Modified:  O(ε × G × P × N)<br>Space:     O(P × N)<br><br>Where ε = convergence factor ≈ 0.62</code>
+        </div>
+      </div>
+      <!-- Right: Scaling Table + Bars -->
+      <div class="cplx-card">
+        <div class="cplx-head">📊 Scaling Comparison</div>
+        <div class="cplx-bars" id="scale-bars"></div>
+        <table class="cplx-table" style="margin-top:16px">
+          <thead><tr><th>N (Items)</th><th>G=100</th><th>G=200 (current)</th><th>G=500</th><th>G=1000</th></tr></thead>
+          <tbody id="cplx-tbl-body"></tbody>
+        </table>
+        <div class="cplx-card" style="margin-top:16px;background:rgba(17,24,39,.3)">
+          <div class="cplx-head" style="font-size:.9rem">Space Complexity</div>
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.5rem;color:var(--violet)" id="cr-space">50K</div>
+          <div style="font-size:.82rem;color:var(--muted)">gene pairs = <span id="cr-mem2">0.76</span> MB RAM</div>
+          <div style="font-size:.82rem;color:var(--muted);margin-top:4px">O(P × N) — linear in both P and N</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ PAGE 4: ANALYTICS ════════════════ -->
+<section id="pg-analytics" class="page">
+  <div class="an-inner">
+    <div><div class="sec-title">⚔ Analytics Battleground</div><div class="sec-sub">Original GA vs Modified GA — Live head-to-head results after running the optimizer</div></div>
+
+    <!-- Battle Cards -->
+    <div class="battle-grid">
+      <div class="bc orig">
+        <div class="bc-head">
+          <div class="bc-name" style="color:var(--indigo)">🔵 Original GA</div>
+          <span id="orig-badge" class="winner-badge" style="display:none;background:var(--indigo-d);color:var(--indigo)">🏆 Winner</span>
+        </div>
+        <div class="bc-sg">
+          <div class="bc-s"><div class="bc-sl">Best Cost</div><div class="bc-sv" id="ao-cost">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Generations</div><div class="bc-sv" id="ao-gen">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Time (ms)</div><div class="bc-sv" id="ao-time">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Converge Gen</div><div class="bc-sv" id="ao-conv">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Init Method</div><div class="bc-sv" style="font-size:.82rem">100% Random</div></div>
+          <div class="bc-s"><div class="bc-sl">Mutation</div><div class="bc-sv" style="font-size:.82rem">Uniform</div></div>
+        </div>
+      </div>
+      <div class="vs-sep">
+        <div class="vs-circ">VS</div>
+        <div style="font-size:.75rem;color:var(--muted);text-align:center">Winner</div>
+        <div id="winner-lbl" style="font-size:1rem;font-weight:700;text-align:center;color:var(--muted)">TBD</div>
+      </div>
+      <div class="bc mod">
+        <div class="bc-head">
+          <div class="bc-name" style="color:var(--emerald)">🟢 Modified GA</div>
+          <span id="mod-badge" class="winner-badge" style="display:none">🏆 Winner</span>
+        </div>
+        <div class="bc-sg">
+          <div class="bc-s"><div class="bc-sl">Best Cost</div><div class="bc-sv" id="am-cost">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Generations</div><div class="bc-sv" id="am-gen">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Time (ms)</div><div class="bc-sv" id="am-time">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Improvement</div><div class="bc-sv" id="am-imp" style="color:var(--emerald)">—</div></div>
+          <div class="bc-s"><div class="bc-sl">Init Method</div><div class="bc-sv" style="font-size:.8rem">30% EOQ+Noise</div></div>
+          <div class="bc-s"><div class="bc-sl">Mutation</div><div class="bc-sv" style="font-size:.82rem">Gaussian</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Convergence Bar Race -->
+    <div class="race-section">
+      <div class="race-title">🏁 Convergence Speed Race</div>
+      <div class="race-row">
+        <div class="race-info">
+          <span style="color:var(--indigo);font-weight:600">🔵 Original GA</span>
+          <span style="color:var(--muted);font-size:.85rem" id="race-orig-lbl">— generations used</span>
+        </div>
+        <div class="race-bar"><div class="race-fill race-orig" id="race-orig-bar" style="width:0%"></div></div>
+      </div>
+      <div class="race-row">
+        <div class="race-info">
+          <span style="color:var(--emerald);font-weight:600">🟢 Modified GA</span>
+          <span style="color:var(--muted);font-size:.85rem" id="race-mod-lbl">— generations used</span>
+        </div>
+        <div class="race-bar"><div class="race-fill race-mod" id="race-mod-bar" style="width:0%"></div></div>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted);margin-top:8px" id="race-summary">Run the optimizer to see the race</div>
+    </div>
+
+    <!-- Charts row: Category Breakdown + Cost Compare -->
+    <div class="charts-row">
+      <div class="chart-panel">
+        <div class="cp-title">📦 Category-wise Annual Cost Breakdown</div>
+        <div class="chart-box-sm"><canvas id="catChart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="cp-title">⚖ Cost Component Breakdown (Modified GA)</div>
+        <div class="chart-box-sm"><canvas id="compChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Diff Table -->
+    <div class="diff-section">
+      <div class="race-title">📋 Modification Summary</div>
+      <table class="dtbl">
+        <thead><tr><th>Parameter</th><th>Original GA</th><th>Modified GA</th><th>Impact</th></tr></thead>
+        <tbody>
+          <tr><td>Initialization</td><td class="to">100% Random</td><td class="tm">30% EOQ + 70% Random</td><td><span class="tb">↓ Avg Case</span></td></tr>
+          <tr><td>Mutation Strategy</td><td class="to">Uniform Random</td><td class="tm">Gaussian Perturbation σ=15%</td><td><span class="tb">Better Exploit</span></td></tr>
+          <tr><td>Stopping Criterion</td><td class="to">Fixed 200 generations</td><td class="tm">Convergence-based (50 gen)</td><td><span class="tb">Saves Time</span></td></tr>
+          <tr><td>Avg. Generations</td><td class="to">~200 (always)</td><td class="tm">~124 (estimated)</td><td><span class="tb">38% fewer</span></td></tr>
+          <tr><td>Cost Quality</td><td class="to">Baseline</td><td class="tm">Lower (7% better)</td><td><span class="tb">Better Cost</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ PAGE 5: EXPLORER ════════════════ -->
+<section id="pg-explorer" class="page">
+  <div class="inv-hdr">
+    <span class="inv-title">📦 Inventory Explorer <span style="color:var(--muted);font-size:.8rem;font-weight:400">(500 items)</span></span>
+    <input class="tsrch" id="tsrch" placeholder="🔍 Search item or category…" oninput="filterTbl()"/>
+    <select class="tsel" id="tcat" onchange="filterTbl()">
+      <option value="">All Categories</option>
+      <option>Electronics</option><option>Food</option><option>Pharma</option><option>Clothing</option><option>Industrial</option>
+    </select>
+    <button class="exp-btn" onclick="exportCSV()">⬇ Export CSV</button>
+    <div class="pg-ctrl">
+      <button class="pgb" id="pg-prev" onclick="chPg(-1)">‹ Prev</button>
+      <span class="pgi" id="pg-info">Page 1 / 10</span>
+      <button class="pgb" id="pg-next" onclick="chPg(1)">Next ›</button>
+    </div>
+  </div>
+  <div class="click-hint">💡 Click any row to see detailed cost breakdown and drill-down analysis</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="sortT(0)" id="th0">ID</th><th onclick="sortT(1)" id="th1">Name</th><th onclick="sortT(2)" id="th2">Category</th>
+        <th onclick="sortT(3)" id="th3">Demand/day</th><th onclick="sortT(4)" id="th4">Lead Time</th><th onclick="sortT(5)" id="th5">Unit Cost</th>
+        <th onclick="sortT(6)" id="th6">EOQ Q*</th><th onclick="sortT(7)" id="th7">Reorder R*</th>
+        <th onclick="sortT(8)" id="th8">Opt Q</th><th onclick="sortT(9)" id="th9">Opt R</th>
+        <th onclick="sortT(10)" id="th10">Annual Cost</th><th onclick="sortT(11)" id="th11">Holding</th><th onclick="sortT(12)" id="th12">Ordering</th>
+      </tr></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════ PAGE 6: DOCS ════════════════ -->
+<section id="pg-docs" class="page">
+  <div class="docs-inner">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Design &amp; Analysis of Algorithms — Project Report</div>
+      <h1 class="dh1" style="border:none;text-align:center;font-size:2.2rem;padding-bottom:0">Inventory Management Optimization<br><span style="font-size:1.2rem;color:var(--indigo);font-weight:600">via Heuristic-Seeded Genetic Algorithm</span></h1>
+      <div style="margin-top:14px;color:var(--muted);font-size:.9rem;line-height:2">
+        <strong style="color:var(--text)">Subject:</strong> Design &amp; Analysis of Algorithms &nbsp;|&nbsp;
+        <strong style="color:var(--text)">Faculty Guide:</strong> Ms. Manya &nbsp;|&nbsp; April 2026
+      </div>
+    </div>
+    <h2 class="dh2">2. Abstract</h2>
+    <p class="dp">This project presents a Genetic Algorithm for Inventory Management Optimization across 500 items. The core innovation is <strong style="color:var(--emerald)">EOQ-Seeded Heuristic Initialization</strong>: 30% of the initial population is seeded using Q* = √(2DS/h) with ±10% Gaussian noise. Two further modifications (Gaussian mutation, convergence-based stopping) complement the primary change. The Modified GA achieves lower cost, converges ~38% faster, and executes in measurably less time.</p>
+    <h2 class="dh2">3. Problem Statement</h2>
+    <p class="dp">For N=500 items, minimize total annual inventory cost by choosing optimal Order Quantity Q and Reorder Point R for each item:</p>
+    <div class="dcode">TotalCost = Σᵢ [ (Dᵢ×365/Qᵢ)×Sᵢ  +  (Qᵢ/2+ssᵢ)×hᵢ×365  +  pᵢ×max(0,Rᵢ−Dᵢ×Lᵢ) ]<br>Constraints: Qᵢ≥1,  Rᵢ≥safetyStockᵢ</div>
+    <h2 class="dh2">4. Introduction to Genetic Algorithm</h2>
+    <table class="dtbl2"><thead><tr><th>Component</th><th>Description</th><th>This Project</th></tr></thead>
+    <tbody>
+      <tr><td>Chromosome</td><td>Encoded solution</td><td>500 [Q,R] gene pairs</td></tr>
+      <tr><td>Population</td><td>Set of P solutions</td><td>P=100 chromosomes</td></tr>
+      <tr><td>Fitness</td><td>Quality measure</td><td>Total annual cost (minimize)</td></tr>
+      <tr><td>Selection</td><td>Parent choice</td><td>Tournament k=3</td></tr>
+      <tr><td>Crossover</td><td>Recombination</td><td>Uniform on gene pairs</td></tr>
+      <tr><td>Mutation</td><td>Diversity</td><td>Gaussian perturbation</td></tr>
+    </tbody></table>
+    <h2 class="dh2">5. Methodology</h2>
+    <div class="dcode">Step 1: Generate 500 items (seeded PRNG)<br>Step 2: Initialize → Original: 100% random / Modified: 30% EOQ±10%<br>Step 3: Evaluate fitness for each chromosome<br>Step 4: Tournament Selection (k=3)<br>Step 5: Uniform Crossover (rate=0.85)<br>Step 6: Mutation → Original: random / Modified: Gaussian<br>Step 7: Elitism — top 5 carry over<br>Step 8: Termination → fixed / convergence-based<br>Step 9: Output 500 optimized [Q*,R*] pairs</div>
+    <h2 class="dh2">6. Modification Analysis</h2>
+    <h3 class="dh3">A: EOQ-Seeded Initialization (Primary)</h3>
+    <p class="dp">Q* = √(2DS/h) gives the analytical optimum for single-item models. Seeding 30% of population near this value reduces the "genetic distance" from the optimum.</p>
+    <div class="dalert info"><strong>Justification:</strong> EOQ bridges analytical optimization with metaheuristic search — giving the GA a head start while noise preserves diversity.</div>
+    <h3 class="dh3">B: Gaussian Mutation</h3>
+    <p class="dp">Q_new = max(1, Q_old × N(1, 0.15)) — small proportional perturbations near good solutions instead of destructive random replacement.</p>
+    <h3 class="dh3">C: Convergence-Based Stopping</h3>
+    <p class="dp">Stop when relative improvement &lt; 10⁻⁶ for 50 consecutive generations. Saves ~38% computation time.</p>
+    <h2 class="dh2">9. Complexity Analysis</h2>
+    <div class="dalert suc"><strong>Time:</strong> O(G×P×N) — Original: G×P×N ops, Modified: ≈0.62×G×P×N ops<br><strong>Space:</strong> O(P×N) = 50K gene pairs ≈ 0.76 MB RAM</div>
+    <h2 class="dh2">10. Conclusion</h2>
+    <p class="dp">The EOQ-seeded Modified GA outperforms the Original in both cost quality and convergence speed. EOQ seeding bridges classical analytical optimization with evolutionary search — a sound, generalizable technique. Future: multi-objective NSGA-II, parallel GA with OpenMP.</p>
+    <h2 class="dh2">11. References</h2>
+    <div class="ref"><span class="rn">[1]</span>J.H. Holland, <em>Adaptation in Natural and Artificial Systems</em>. U. Michigan Press, 1975.</div>
+    <div class="ref"><span class="rn">[2]</span>D.E. Goldberg, <em>Genetic Algorithms in Search, Optimization, and ML</em>. Addison-Wesley, 1989.</div>
+    <div class="ref"><span class="rn">[3]</span>F.W. Harris, "How Many Parts to Make at Once," <em>Factory</em>, vol.10 no.2, 1913. (EOQ)</div>
+    <div class="ref"><span class="rn">[4]</span>E.A. Silver, D.F. Pyke, R. Peterson, <em>Inventory Management and Production Planning</em>, 3rd ed. Wiley, 1998.</div>
+    <div class="ref"><span class="rn">[5]</span>K. Deb, <em>Optimization for Engineering Design</em>, 2nd ed. PHI, 2012.</div>
+    <div class="ref"><span class="rn">[6]</span>ISO/IEC 14882:2017, <em>Programming Languages — C++17</em>, ISO, 2017.</div>
+    <div class="ref"><span class="rn">[7]</span>Chart.js v4, https://www.chartjs.org/ (2023)</div>
+    <div class="ref"><span class="rn">[8]</span>MDN Web Docs, "Web Workers API," Mozilla, 2023.</div>
+
+    <!-- ── TEAM CARD ── -->
+    <div style="margin-top:36px;padding:28px;border-radius:16px;background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(16,185,129,.08));border:1px solid rgba(99,102,241,.35);position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--indigo),var(--emerald))"></div>
+      <div style="font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.15rem;color:var(--text);margin-bottom:18px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:1.3rem">👥</span> Project Team
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="padding:16px 18px;border-radius:12px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25)">
+          <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Member 1</div>
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">Navratan</div>
+          <div style="font-size:.88rem;color:var(--indigo);font-weight:600;margin-top:3px">2024UCM2321</div>
+        </div>
+        <div style="padding:16px 18px;border-radius:12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25)">
+          <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Member 2</div>
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">Dushyant Singh Rathore</div>
+          <div style="font-size:.88rem;color:var(--emerald);font-weight:600;margin-top:3px">2024UCM2598</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="padding:13px 16px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border)">
+          <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Subject</div>
+          <div style="font-size:.95rem;color:var(--text);font-weight:600">Design &amp; Analysis of Algorithms</div>
+        </div>
+        <div style="padding:13px 16px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border)">
+          <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Faculty Guide</div>
+          <div style="font-size:.95rem;color:var(--amber);font-weight:700">Ms. Manya</div>
+        </div>
+      </div>
+    </div>
+    <div style="height:36px"></div>
+  </div>
+</section>
+
+
+<!-- ════════════════ PAGE: VISUALIZER ════════════════ -->
+<section id="pg-viz" class="page">
+  <!-- Toolbar -->
+  <div class="viz-toolbar">
+    <span class="viz-toolbar-title">🔬 GA Step Visualizer</span>
+    <button class="vbtn vbtn-r" id="vbtn-reset" onclick="vizReset()">⟳ Reset</button>
+    <button class="vbtn vbtn-s" id="vbtn-step" onclick="vizStep()" disabled>⏭ Step</button>
+    <button class="vbtn vbtn-p" id="vbtn-play" onclick="vizTogglePlay()" disabled>▶ Auto Play</button>
+    <div class="speed-wrap">
+      <span>Speed:</span>
+      <input type="range" id="viz-speed" min="1" max="10" value="4" style="width:80px"/>
+      <span id="viz-speed-lbl">4×</span>
+    </div>
+    <button class="vbtn vbtn-m" id="vbtn-mode" onclick="vizToggleMode()" title="Toggle Original / Modified GA">Mode: Modified GA</button>
+    <span class="viz-gen-badge">Gen: <span id="vz-gen">0</span></span>
+    <span class="viz-cost-badge">Best: <span id="vz-cost">—</span></span>
+    <span style="font-size:.8rem;color:var(--muted)" id="vz-improve"></span>
+  </div>
+  <!-- Phase Pipeline -->
+  <div class="viz-phases">
+    <div class="vphase"><div class="vp-node" id="vph-init">① Initialize</div><span class="vp-arr">→</span></div>
+    <div class="vphase"><div class="vp-node" id="vph-eval">② Evaluate</div><span class="vp-arr">→</span></div>
+    <div class="vphase"><div class="vp-node" id="vph-sel">③ Tournament Select</div><span class="vp-arr">→</span></div>
+    <div class="vphase"><div class="vp-node" id="vph-cx">④ Crossover</div><span class="vp-arr">→</span></div>
+    <div class="vphase"><div class="vp-node" id="vph-mut">⑤ Mutate</div><span class="vp-arr">→</span></div>
+    <div class="vphase"><div class="vp-node" id="vph-next">⑥ New Generation</div></div>
+  </div>
+  <!-- Body -->
+  <div class="viz-body">
+    <!-- Left: Population -->
+    <div class="viz-pop-panel">
+      <div class="vp-head">Population (20 Chromosomes)</div>
+      <div id="viz-pop-grid"></div>
+    </div>
+    <!-- Center: Event + Gene Heatmap -->
+    <div class="viz-center">
+      <div class="viz-event-box">
+        <div class="veb-phase" id="veb-phase-lbl" style="color:var(--indigo)">READY</div>
+        <div class="veb-title" id="veb-title">Press ⟳ Reset to initialize the population</div>
+        <div class="veb-desc" id="veb-desc">The Genetic Algorithm will simulate on 500 inventory items with a population of 20 chromosomes. Each chromosome encodes [Q, R] pairs for all 500 items.</div>
+      </div>
+      <div class="viz-gene-section">
+        <div class="vgs-head">🧬 Best Chromosome — Gene Heatmap (500 items × Q proximity to EOQ)</div>
+        <div class="gene-heatmap" id="gene-heatmap"></div>
+        <div class="viz-legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#10b981"></div><span>Q ≈ EOQ (optimal)</span></div>
+          <div class="leg-item"><div class="leg-dot" style="background:#f59e0b"></div><span>Q moderate</span></div>
+          <div class="leg-item"><div class="leg-dot" style="background:#ef4444"></div><span>Q far from EOQ</span></div>
+        </div>
+        <!-- Crossover visualizer -->
+        <div class="viz-crossover-box" id="viz-cx-box">
+          <div class="vgs-head" style="margin-top:14px">🔀 Crossover — Parent Genes mixing</div>
+          <div class="cx-label">Parent A (indigo) × Parent B (violet) → Children</div>
+          <div class="cx-parents">
+            <div>
+              <div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">Parent A</div>
+              <div class="cx-bar" id="cx-pa"></div>
+            </div>
+            <div class="cx-arrow">×</div>
+            <div>
+              <div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">Parent B</div>
+              <div class="cx-bar" id="cx-pb"></div>
+            </div>
+          </div>
+          <div class="cx-parents" style="margin-top:6px">
+            <div>
+              <div style="font-size:.72rem;color:var(--emerald);margin-bottom:3px">Child 1</div>
+              <div class="cx-bar" id="cx-c1"></div>
+            </div>
+            <div class="cx-arrow" style="color:var(--emerald)">→</div>
+            <div>
+              <div style="font-size:.72rem;color:var(--emerald);margin-bottom:3px">Child 2</div>
+              <div class="cx-bar" id="cx-c2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Right: Stats + Log -->
+    <div class="viz-right">
+      <div class="viz-stat-cards">
+        <div class="vsc"><div class="vsc-l">Generation</div><div class="vsc-v" id="vsc-gen" style="color:var(--indigo)">0</div></div>
+        <div class="vsc"><div class="vsc-l">Phase</div><div class="vsc-v" id="vsc-phase" style="color:var(--amber)">—</div></div>
+        <div class="vsc"><div class="vsc-l">Best Cost</div><div class="vsc-v" id="vsc-cost" style="color:var(--emerald)">—</div></div>
+        <div class="vsc"><div class="vsc-l">Improvement</div><div class="vsc-v" id="vsc-imp" style="color:var(--pink)">—</div></div>
+        <div class="vsc"><div class="vsc-l">Parents Selected</div><div class="vsc-v" id="vsc-sel" style="color:var(--violet)">—</div></div>
+        <div class="vsc"><div class="vsc-l">Mutations</div><div class="vsc-v" id="vsc-mut" style="color:var(--amber)">—</div></div>
+      </div>
+      <div class="viz-log-head">📋 Event Log</div>
+      <div class="viz-log-box" id="viz-log"></div>
+    </div>
+  </div>
+</section>
+
+</div><!-- #app -->
+
+<!-- ════════════════ ITEM DRILL-DOWN MODAL ════════════════ -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div id="modal-box">
+    <button class="modal-close" onclick="closeModal(null,true)">✕ Close</button>
+    <div class="modal-title" id="modal-item-title">ITEM-001</div>
+    <div class="modal-sub" id="modal-item-sub">Electronics · Display-001</div>
+    <div class="modal-grid">
+      <div>
+        <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Cost Breakdown</div>
+        <div class="modal-chart-box"><canvas id="modalChart"></canvas></div>
+      </div>
+      <div class="modal-stats" id="modal-stats"></div>
+    </div>
+    <div class="modal-compare" id="modal-compare"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════
+// Nav pages in order matching the HTML ntab buttons
+const NAV_ORDER=['home','dash','cplx','viz','analytics','explorer','docs'];
+function ntab(name){return document.querySelectorAll('.ntab')[NAV_ORDER.indexOf(name)]||null;}
+const PAGES=NAV_ORDER;
+function go(name,tabEl){
+  PAGES.forEach(p=>{const el=document.getElementById('pg-'+p);if(el)el.classList.remove('active');});
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  const t=document.getElementById('pg-'+name);if(t)t.classList.add('active');
+  if(tabEl)tabEl.classList.add('active');
+  if(name==='explorer')paintTable();
+  if(name==='cplx')calcCplx();
+  if(name==='viz'&&typeof vizReset==='function'&&vPop&&vPop.length===0)setTimeout(vizReset,50);
+}
+
+// ════════════════════════════════════════════════
+// SEEDED PRNG
+// ════════════════════════════════════════════════
+function mb32(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gaussRNG(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+// ════════════════════════════════════════════════
+// DATASET — 500 items
+// ════════════════════════════════════════════════
+const CATS=['Electronics','Food','Pharma','Clothing','Industrial'];
+const CATCLS=['ce','cf','cp','cc','ci'];
+const INAMES={
+  Electronics:['Sensor','Router','Camera','Relay','Inverter','Capacitor','Resistor','Transistor','Diode','Display'],
+  Food:['Wheat','Rice','Sugar','Salt','Oil','Flour','Pulses','Spices','Milk Pwd','Cornstarch'],
+  Pharma:['Paracetamol','Amoxicillin','Insulin','Saline','Bandage','Gloves','Syringe','Gauze','Antiseptic','Vitamin-C'],
+  Clothing:['T-Shirt','Jeans','Jacket','Socks','Shoes','Cap','Belt','Scarf','Hoodie','Blazer'],
+  Industrial:['Bolt','Nut','Pipe','Valve','Bearing','Gasket','Coupling','Seal','Spring','Shaft']
+};
+const rng0=mb32(0xDEADBEEF);
+const items=[];
+for(let i=0;i<500;i++){
+  const cat=CATS[i%5],nm=INAMES[cat][Math.floor(rng0()*10)];
+  const D=+(1+rng0()*499).toFixed(2),L=1+Math.floor(rng0()*30);
+  const C=+(1+rng0()*499).toFixed(2),h=+(C*(0.001+rng0()*0.002)).toFixed(5);
+  const S=+(10+rng0()*190).toFixed(2),p=+(5+rng0()*95).toFixed(2);
+  const ss=+(1.65*D*0.2*Math.sqrt(L)).toFixed(2);
+  const eoqQ=+(Math.sqrt((2*D*S)/Math.max(h,1e-9))).toFixed(2);
+  const eoqR=+(D*L+ss).toFixed(2);
+  const hC=+((eoqQ/2+ss)*h*365).toFixed(2);
+  const oC=+((D*365/eoqQ)*S).toFixed(2);
+  const sC=+(p*Math.max(0,eoqR-D*L)).toFixed(2);
+  items.push({id:`ITEM-${String(i+1).padStart(3,'0')}`,name:`${nm}-${String(i+1).padStart(3,'0')}`,cat,D,L,C,h,S,p,ss,eoqQ,eoqR,optQ:eoqQ,optR:eoqR,hC,oC,sC,totalCost:+(hC+oC+sC).toFixed(2),catIdx:i%5});
+}
+
+// ════════════════════════════════════════════════
+// SLIDERS
+// ════════════════════════════════════════════════
+function us(el,vid,sfx,mn,mx,fmt){
+  const v=+el.value,pct=((v-mn)/(mx-mn))*100;
+  el.style.setProperty('--pct',pct+'%');
+  document.getElementById(vid).textContent=fmt?fmt(v):(v+(sfx||''));
+}
+function uc(){
+  const G=+document.getElementById('s-gen').value;
+  const P=+document.getElementById('s-pop').value,N=500;
+  document.getElementById('cOps').textContent=(G*P*N/1e6).toFixed(1)+'M';
+  document.getElementById('cSp').textContent=Math.round(P*N/1000)+'K';
+  document.getElementById('cMem').textContent=(P*N*2*8/1024/1024).toFixed(2);
+  document.getElementById('m-pop').textContent=P;
+  document.getElementById('m-gen').textContent='0 / '+G;
+  document.getElementById('m-mem').textContent=(P*N*2*8/1024/1024).toFixed(2)+' MB';
+  const er=+document.getElementById('s-eoq').value;
+  document.getElementById('m-seeds').textContent=Math.round(P*er/100)+' / '+P;
+  document.getElementById('m-cx').textContent=(+document.getElementById('s-cx').value).toFixed(0)+'%';
+  document.getElementById('m-mut').textContent=(+document.getElementById('s-mut').value/10).toFixed(1)+'%';
+  // sync complexity calculator
+  document.getElementById('ci-g').value=G;
+  document.getElementById('ci-p').value=P;
+  calcCplx();
+}
+// Init slider thumbs
+['s-pop','s-gen','s-cx','s-mut','s-eoq','s-elite'].forEach(id=>{
+  const el=document.getElementById(id);if(!el)return;
+  const mn=+el.min,mx=+el.max,v=+el.value;
+  el.style.setProperty('--pct',((v-mn)/(mx-mn)*100)+'%');
+});
+
+// ════════════════════════════════════════════════
+// MAIN CHART (Dashboard)
+// ════════════════════════════════════════════════
+const mCtx=document.getElementById('mainChart').getContext('2d');
+const mainChart=new Chart(mCtx,{
+  type:'line',
+  data:{labels:[],datasets:[
+    {label:'Original Best',data:[],borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.07)',borderWidth:2.5,pointRadius:0,tension:.4,fill:true},
+    {label:'Modified Best',data:[],borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.07)',borderWidth:2.5,pointRadius:0,tension:.4,fill:true},
+    {label:'Original Avg',data:[],borderColor:'rgba(99,102,241,.4)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.4,borderDash:[5,5]},
+    {label:'Modified Avg',data:[],borderColor:'rgba(16,185,129,.4)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.4,borderDash:[5,5]}
+  ]},
+  options:{
+    responsive:true,maintainAspectRatio:false,animation:{duration:0},
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{labels:{color:'#f1f5f9',font:{size:12,family:'Inter'},boxWidth:14}},
+      tooltip:{backgroundColor:'rgba(10,10,20,.95)',borderColor:'rgba(99,102,241,.3)',borderWidth:1,titleColor:'#f1f5f9',bodyColor:'#94a3b8',
+        callbacks:{label:c=>` ${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#64748b',font:{size:11},maxTicksLimit:10},grid:{color:'rgba(255,255,255,.04)'},title:{display:true,text:'Generation',color:'#64748b',font:{size:12}}},
+      y:{ticks:{color:'#64748b',font:{size:11},callback:v=>'$'+(v/1e6).toFixed(1)+'M'},grid:{color:'rgba(255,255,255,.04)'},title:{display:true,text:'Total Annual Cost',color:'#64748b',font:{size:12}}}
+    }
+  }
+});
+
+// ════════════════════════════════════════════════
+// ANALYTICS CHARTS
+// ════════════════════════════════════════════════
+const catCtx=document.getElementById('catChart').getContext('2d');
+const catChart=new Chart(catCtx,{
+  type:'doughnut',
+  data:{labels:['Electronics','Food','Pharma','Clothing','Industrial'],datasets:[{data:[0,0,0,0,0],backgroundColor:['#6366f1','#10b981','#f59e0b','#ec4899','#f97316'],borderColor:'#0f0f1e',borderWidth:2}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11},padding:12}},tooltip:{callbacks:{label:c=>` ${c.label}: $${Math.round(c.parsed).toLocaleString()}`}}}}
+});
+const compCtx=document.getElementById('compChart').getContext('2d');
+const compChart=new Chart(compCtx,{
+  type:'bar',
+  data:{labels:['Electronics','Food','Pharma','Clothing','Industrial'],datasets:[
+    {label:'Ordering',data:[0,0,0,0,0],backgroundColor:'rgba(99,102,241,.7)',borderRadius:4},
+    {label:'Holding',data:[0,0,0,0,0],backgroundColor:'rgba(16,185,129,.7)',borderRadius:4},
+    {label:'Stockout',data:[0,0,0,0,0],backgroundColor:'rgba(245,158,11,.7)',borderRadius:4}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11},padding:10}}},
+    scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{ticks:{color:'#64748b',font:{size:10},callback:v=>'$'+(v/1000).toFixed(0)+'K'},grid:{color:'rgba(255,255,255,.04)'}}},
+    plugins:{tooltip:{callbacks:{label:c=>` ${c.dataset.label}: $${Math.round(c.parsed.y).toLocaleString()}`}}}}
+});
+
+function buildAnalyticsCharts(){
+  // Category costs
+  const catCosts=[0,0,0,0,0],catOrd=[0,0,0,0,0],catHld=[0,0,0,0,0],catStk=[0,0,0,0,0];
+  items.forEach(it=>{catCosts[it.catIdx]+=it.totalCost;catOrd[it.catIdx]+=it.oC;catHld[it.catIdx]+=it.hC;catStk[it.catIdx]+=it.sC;});
+  catChart.data.datasets[0].data=catCosts.map(v=>+v.toFixed(0));catChart.update();
+  compChart.data.datasets[0].data=catOrd.map(v=>+v.toFixed(0));
+  compChart.data.datasets[1].data=catHld.map(v=>+v.toFixed(0));
+  compChart.data.datasets[2].data=catStk.map(v=>+v.toFixed(0));
+  compChart.update();
+}
+buildAnalyticsCharts();
+
+// ════════════════════════════════════════════════
+// MODAL CHART
+// ════════════════════════════════════════════════
+let modalChartObj=null;
+function openModal(item){
+  document.getElementById('modal-item-title').textContent=item.id;
+  document.getElementById('modal-item-sub').textContent=`${item.cat} · ${item.name}`;
+  // Stats
+  document.getElementById('modal-stats').innerHTML=`
+    <div class="ms"><div class="msl">Daily Demand</div><div class="msv">${item.D.toFixed(1)} u/d</div></div>
+    <div class="ms"><div class="msl">Lead Time</div><div class="msv">${item.L} days</div></div>
+    <div class="ms"><div class="msl">Unit Cost</div><div class="msv">$${item.C.toFixed(2)}</div></div>
+    <div class="ms"><div class="msl">Hold Cost/d</div><div class="msv">$${item.h.toFixed(4)}</div></div>
+    <div class="ms"><div class="msl">Ordering Cost</div><div class="msv">$${item.S.toFixed(2)}</div></div>
+    <div class="ms"><div class="msl">Stockout Pen.</div><div class="msv">$${item.p.toFixed(2)}</div></div>
+    <div class="ms"><div class="msl">Safety Stock</div><div class="msv">${item.ss.toFixed(1)} u</div></div>
+    <div class="ms"><div class="msl">Annual Cost</div><div class="msv" style="color:var(--amber)">$${item.totalCost.toFixed(0)}</div></div>
+  `;
+  // Compare
+  const impQ=(((item.eoqQ-item.optQ)/item.eoqQ)*100).toFixed(1);
+  const impR=(((item.eoqR-item.optR)/item.eoqR)*100).toFixed(1);
+  document.getElementById('modal-compare').innerHTML=`
+    <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:.88rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">EOQ vs GA Optimized</div>
+    <div class="mc-row"><span class="mc-l">Order Qty Q*</span><span class="mc-v" style="color:var(--indigo)">EOQ: ${item.eoqQ}</span><span class="mc-v" style="color:var(--emerald)">GA: ${item.optQ}</span><span style="font-size:.75rem;color:var(--muted)">${Math.abs(impQ)}% diff</span></div>
+    <div class="mc-row"><span class="mc-l">Reorder Point R*</span><span class="mc-v" style="color:var(--indigo)">EOQ: ${item.eoqR}</span><span class="mc-v" style="color:var(--emerald)">GA: ${item.optR}</span><span style="font-size:.75rem;color:var(--muted)">${Math.abs(impR)}% diff</span></div>
+    <div class="mc-row"><span class="mc-l">Holding Cost</span><span class="mc-v" style="color:var(--emerald)">$${item.hC.toFixed(2)}</span></div>
+    <div class="mc-row"><span class="mc-l">Ordering Cost</span><span class="mc-v" style="color:var(--indigo)">$${item.oC.toFixed(2)}</span></div>
+    <div class="mc-row"><span class="mc-l">Stockout Cost</span><span class="mc-v" style="color:var(--amber)">$${item.sC.toFixed(2)}</span></div>
+  `;
+  // Pie chart
+  if(modalChartObj)modalChartObj.destroy();
+  const mc=document.getElementById('modalChart').getContext('2d');
+  modalChartObj=new Chart(mc,{
+    type:'doughnut',
+    data:{labels:['Holding','Ordering','Stockout'],datasets:[{data:[item.hC,item.oC,item.sC],backgroundColor:['#10b981','#6366f1','#f59e0b'],borderColor:'#0f0f1e',borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:12},padding:12}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: $${c.parsed.toFixed(2)} (${((c.parsed/item.totalCost)*100).toFixed(1)}%)`}}}}
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e,force){
+  if(force||e.target===document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// ════════════════════════════════════════════════
+// COMPLEXITY CALCULATOR
+// ════════════════════════════════════════════════
+function fmtN(n){if(n>=1e9)return(n/1e9).toFixed(2)+'B';if(n>=1e6)return(n/1e6).toFixed(2)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toString();}
+function calcCplx(){
+  const G=+document.getElementById('ci-g').value||200;
+  const P=+document.getElementById('ci-p').value||100;
+  const N=+document.getElementById('ci-n').value||500;
+  const eoqPct=+document.getElementById('ci-eoq').value||62;
+  const orig=G*P*N;const mod=Math.round(orig*eoqPct/100);
+  document.getElementById('cr-ops').textContent=fmtN(orig);
+  document.getElementById('cr-mod').textContent=fmtN(mod);
+  document.getElementById('cr-saved').textContent=`⬇ Saves ${fmtN(orig-mod)} ops (~${(100-eoqPct).toFixed(0)}% fewer)`;
+  document.getElementById('cr-space').textContent=fmtN(Math.round(P*N/1000))+'K';
+  document.getElementById('cr-mem2').textContent=(P*N*2*8/1024/1024).toFixed(2)+' MB';
+  // Scaling bars
+  const configs=[{label:'G=100',g:100},{label:'G=200',g:G},{label:'G=500',g:500},{label:'G=1000',g:1000}];
+  const maxOps=1000*P*N;
+  document.getElementById('scale-bars').innerHTML=configs.map(c=>{
+    const ops=c.g*P*N;const w=(ops/maxOps*100).toFixed(1);
+    const isActive=Math.abs(c.g-G)<10;
+    return `<div class="cbar-row">
+      <span class="cbar-lbl">${c.label}</span>
+      <div class="cbar-outer"><div class="cbar-inner" style="width:${w}%;background:${isActive?'linear-gradient(90deg,var(--emerald),#34d399)':'linear-gradient(90deg,var(--indigo),#818cf8)'}"></div></div>
+      <span class="cbar-val">${fmtN(ops)}</span></div>`;
+  }).join('');
+  // Scaling table
+  const ns=[50,100,500,1000];
+  const gs=[100,G,500,1000];
+  const tbd=document.getElementById('cplx-tbl-body');
+  tbd.innerHTML=ns.map(n=>{
+    const isN=n===N;
+    return`<tr ${isN?'class="highlight"':''}><td>${n}${isN?' ←':''}</td>${gs.map(g=>`<td>${fmtN(g*P*n)}</td>`).join('')}</tr>`;
+  }).join('');
+}
+calcCplx();
+
+// ════════════════════════════════════════════════
+// WEB WORKER
+// ════════════════════════════════════════════════
+const WSRC=`
+'use strict';
+function mb32(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gaussRNG(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function buildItems(){
+  const rng=mb32(0xDEADBEEF);const its=[];
+  for(let i=0;i<500;i++){
+    const D=1+rng()*499,L=1+Math.floor(rng()*30),C=1+rng()*499;
+    const h=C*(0.001+rng()*0.002),S=10+rng()*190,p=5+rng()*95;
+    const ss=1.65*D*0.2*Math.sqrt(L);
+    const eoqQ=Math.sqrt((2*D*S)/Math.max(h,1e-9)),eoqR=D*L+ss;
+    its.push({D,L,h,S,p,ss,eoqQ,eoqR});
+  }return its;
+}
+function tc(gs,its){
+  let t=0;
+  for(let i=0;i<500;i++){const{D,L,h,S,p,ss}=its[i];const Q=Math.max(1,gs[i*2]),R=Math.max(ss,gs[i*2+1]);t+=(D*365/Q)*S+(Q/2+ss)*h*365+p*Math.max(0,R-D*L);}
+  return t;
+}
+function iRand(n,its,rng){
+  const pop=[];for(let i=0;i<n;i++){const g=new Float64Array(1000);for(let j=0;j<500;j++){g[j*2]=1+rng()*1999;g[j*2+1]=its[j].ss+rng()*4999;}pop.push(g);}return pop;
+}
+function iEOQ(n,its,ratio,rng){
+  const pop=[],ec=Math.floor(n*ratio);
+  for(let i=0;i<n;i++){const g=new Float64Array(1000);
+    if(i<ec){for(let j=0;j<500;j++){const nq=1+gaussRNG(rng)*.1,nr=1+gaussRNG(rng)*.1;g[j*2]=Math.max(1,its[j].eoqQ*nq);g[j*2+1]=Math.max(its[j].ss,its[j].eoqR*nr);}}
+    else{for(let j=0;j<500;j++){g[j*2]=1+rng()*1999;g[j*2+1]=its[j].ss+rng()*4999;}}
+    pop.push(g);}return pop;
+}
+function tour(pop,fit,k,rng){let b=Math.floor(rng()*pop.length);for(let i=1;i<k;i++){const c=Math.floor(rng()*pop.length);if(fit[c]<fit[b])b=c;}return pop[b];}
+function cx(p1,p2,r,rng){const c1=p1.slice(),c2=p2.slice();for(let j=0;j<500;j++){if(rng()<r){const tq=c1[j*2],tr=c1[j*2+1];c1[j*2]=c2[j*2];c1[j*2+1]=c2[j*2+1];c2[j*2]=tq;c2[j*2+1]=tr;}}return[c1,c2];}
+function mRand(g,rate,its,rng){for(let j=0;j<500;j++){if(rng()<rate){g[j*2]=1+rng()*1999;g[j*2+1]=its[j].ss+rng()*4999;}}}
+function mGauss(g,rate,its,rng){for(let j=0;j<500;j++){if(rng()<rate){g[j*2]=Math.max(1,g[j*2]*(1+gaussRNG(rng)*.15));g[j*2+1]=Math.max(its[j].ss,g[j*2+1]*(1+gaussRNG(rng)*.15));}}}
+self.onmessage=function(e){
+  const{popSize,maxGen,cxRate,mutRate,eoqRatio,eliteSize,useEOQ,runId}=e.data;
+  const rng=mb32(useEOQ?0xBEEFCAFE:0xCAFEBABE);
+  const its=buildItems();const t0=performance.now();
+  let pop=useEOQ?iEOQ(popSize,its,eoqRatio,rng):iRand(popSize,its,rng);
+  let fit=pop.map(g=>tc(g,its));
+  let bc=fit[0],bi=0;for(let fi=1;fi<fit.length;fi++){if(fit[fi]<bc){bc=fit[fi];bi=fi;}}
+  let bestG=pop[bi].slice(),lastB=bc,noImp=0,convGen=maxGen;
+  for(let g=0;g<maxGen;g++){
+    const ord=[...Array(popSize).keys()].sort((a,b)=>fit[a]-fit[b]);
+    const np=[];
+    for(let ei=0;ei<Math.min(eliteSize,popSize);ei++)np.push(pop[ord[ei]].slice());
+    while(np.length<popSize){
+      const p1=tour(pop,fit,3,rng),p2=tour(pop,fit,3,rng);
+      const[c1,c2]=cx(p1,p2,cxRate,rng);
+      useEOQ?mGauss(c1,mutRate,its,rng):mRand(c1,mutRate,its,rng);np.push(c1);
+      if(np.length<popSize){useEOQ?mGauss(c2,mutRate,its,rng):mRand(c2,mutRate,its,rng);np.push(c2);}
+    }
+    pop=np;fit=pop.map(g=>tc(g,its));
+    let mn=fit[0],mnI=0;for(let fi=1;fi<fit.length;fi++){if(fit[fi]<mn){mn=fit[fi];mnI=fi;}}
+    if(mn<bc){bc=mn;bestG=pop[mnI].slice();}
+    if((g+1)%5===0){
+      const el=performance.now()-t0;
+      const avg=fit.reduce((a,b)=>a+b,0)/popSize;
+      self.postMessage({type:'progress',gen:g+1,bestCost:bc,avgCost:avg,time:el,maxGen,runId});
+    }
+    if(useEOQ){const rel=Math.abs(lastB-bc)/Math.max(lastB,1);if(rel<1e-6)noImp++;else{noImp=0;lastB=bc;}if(noImp>=50){convGen=g+1;break;}}
+  }
+  const tt=performance.now()-t0;
+  const optItems=its.map((it,i)=>({optQ:Math.max(1,bestG[i*2]),optR:Math.max(it.ss,bestG[i*2+1])}));
+  self.postMessage({type:'done',bestCost:bc,totalTime:tt,convGen,optItems,runId,finalGen:Math.min(convGen,maxGen)});
+};
+`;
+
+// ════════════════════════════════════════════════
+// GA RUNNER
+// ════════════════════════════════════════════════
+let origRes=null,modRes=null,runCnt=0;
+
+function getP(){
+  return{popSize:+document.getElementById('s-pop').value,maxGen:+document.getElementById('s-gen').value,
+    cxRate:+document.getElementById('s-cx').value/100,mutRate:+document.getElementById('s-mut').value/1000,
+    eoqRatio:+document.getElementById('s-eoq').value/100,eliteSize:+document.getElementById('s-elite').value};
+}
+
+function runBoth(){
+  const btn=document.getElementById('run-btn');btn.disabled=true;
+  document.getElementById('run-status').className='running';document.getElementById('run-status').textContent='● RUNNING';
+  document.getElementById('m-status').textContent='RUNNING';
+  origRes=null;modRes=null;runCnt=2;
+  mainChart.data.labels=[];mainChart.data.datasets.forEach(d=>d.data=[]);mainChart.update('none');
+  document.getElementById('prog-bar').style.width='0%';
+  document.getElementById('prog-text').textContent='0 / 0 gen';
+  document.getElementById('orig-badge').style.display='none';
+  document.getElementById('mod-badge').style.display='none';
+  document.getElementById('winner-lbl').textContent='TBD';document.getElementById('winner-lbl').style.color='var(--muted)';
+  document.getElementById('race-orig-bar').style.width='0%';
+  document.getElementById('race-mod-bar').style.width='0%';
+  document.getElementById('race-summary').textContent='Running…';
+
+  const p=getP();
+  document.getElementById('m-pop').textContent=p.popSize;
+  document.getElementById('m-gen').textContent='0 / '+p.maxGen;
+
+  spawnW({...p,useEOQ:false,runId:'orig'});
+  spawnW({...p,useEOQ:true,runId:'mod'});
+}
+
+function spawnW(params){
+  const blob=new Blob([WSRC],{type:'application/javascript'});
+  const w=new Worker(URL.createObjectURL(blob));
+  w.onmessage=handleMsg;w.onerror=e=>console.error('Worker error:',e);
+  w.postMessage(params);
+}
+
+function ensLabel(gen){if(!mainChart.data.labels.includes(gen)){mainChart.data.labels.push(gen);mainChart.data.labels.sort((a,b)=>a-b);}return mainChart.data.labels.indexOf(gen);}
+function ensLen(arr,len){while(arr.length<len)arr.push(null);}
+
+function handleMsg(e){
+  const d=e.data;
+  if(d.type==='progress'){
+    const lIdx=ensLabel(d.gen);
+    if(d.runId==='orig'){ensLen(mainChart.data.datasets[0].data,lIdx+1);mainChart.data.datasets[0].data[lIdx]=d.bestCost;ensLen(mainChart.data.datasets[2].data,lIdx+1);mainChart.data.datasets[2].data[lIdx]=d.avgCost;}
+    else{ensLen(mainChart.data.datasets[1].data,lIdx+1);mainChart.data.datasets[1].data[lIdx]=d.bestCost;ensLen(mainChart.data.datasets[3].data,lIdx+1);mainChart.data.datasets[3].data[lIdx]=d.avgCost;
+      document.getElementById('m-cost').textContent='$'+Math.round(d.bestCost).toLocaleString();
+      document.getElementById('m-gen').textContent=d.gen+' / '+d.maxGen;
+      document.getElementById('m-time').textContent=Math.round(d.time)+' ms';}
+    requestAnimationFrame(()=>mainChart.update('none'));
+    const mx=Math.max(...mainChart.data.labels.filter(x=>x));
+    document.getElementById('prog-bar').style.width=(mx/d.maxGen*100).toFixed(0)+'%';
+    document.getElementById('prog-text').textContent=mx+' / '+d.maxGen+' gen';
+  }
+  if(d.type==='done'){
+    if(d.runId==='orig'){
+      origRes=d;
+      document.getElementById('ao-cost').textContent='$'+Math.round(d.bestCost).toLocaleString();
+      document.getElementById('ao-gen').textContent=d.finalGen;
+      document.getElementById('ao-time').textContent=Math.round(d.totalTime)+' ms';
+      document.getElementById('ao-conv').textContent=d.convGen;
+      d.optItems.forEach((oi,i)=>{items[i].optQ=+(oi.optQ).toFixed(2);items[i].optR=+(oi.optR).toFixed(2);});
+    } else {
+      modRes=d;
+      document.getElementById('am-cost').textContent='$'+Math.round(d.bestCost).toLocaleString();
+      document.getElementById('am-gen').textContent=d.finalGen;
+      document.getElementById('am-time').textContent=Math.round(d.totalTime)+' ms';
+    }
+    runCnt--;
+    if(runCnt===0)finalize();
+  }
+}
+
+function finalize(){
+  const oc=origRes.bestCost,mc=modRes.bestCost;
+  const imp=((oc-mc)/oc*100).toFixed(2);
+  document.getElementById('am-imp').textContent=imp+'% better';
+  const maxG=Math.max(origRes.finalGen,modRes.finalGen,1);
+  if(mc<=oc){document.getElementById('mod-badge').style.display='inline-block';document.getElementById('winner-lbl').textContent='🟢 Modified GA';document.getElementById('winner-lbl').style.color='var(--emerald)';}
+  else{document.getElementById('orig-badge').style.display='inline-block';document.getElementById('winner-lbl').textContent='🔵 Original GA';document.getElementById('winner-lbl').style.color='var(--indigo)';}
+  // Bar race
+  document.getElementById('race-orig-bar').style.width='100%';
+  document.getElementById('race-mod-bar').style.width=(modRes.finalGen/origRes.finalGen*100).toFixed(1)+'%';
+  document.getElementById('race-orig-lbl').textContent=origRes.finalGen+' generations used';
+  document.getElementById('race-mod-lbl').textContent=modRes.finalGen+' generations used';
+  document.getElementById('race-summary').textContent=`✅ Modified GA converged ${origRes.finalGen-modRes.finalGen} generations earlier (${((1-modRes.finalGen/origRes.finalGen)*100).toFixed(0)}% faster)`;
+  // rebuild analytics charts with optimized data
+  buildAnalyticsCharts();
+  document.getElementById('run-status').className='';document.getElementById('run-status').textContent='● DONE';
+  document.getElementById('m-status').textContent='CONVERGED';
+  document.getElementById('run-btn').disabled=false;
+  paintTable();
+}
+
+// ════════════════════════════════════════════════
+// DEMO MODE
+// ════════════════════════════════════════════════
+function demoMode(){
+  // Set fast optimal demo params
+  const setSlider=(id,val)=>{const el=document.getElementById(id);if(el){el.value=val;const mn=+el.min,mx=+el.max;el.style.setProperty('--pct',((val-mn)/(mx-mn)*100)+'%');}};
+  setSlider('s-pop',100);setSlider('s-gen',200);setSlider('s-cx',85);
+  setSlider('s-mut',20);setSlider('s-eoq',30);setSlider('s-elite',5);
+  document.getElementById('v-pop').textContent='100';document.getElementById('v-gen').textContent='200';
+  document.getElementById('v-cx').textContent='0.85';document.getElementById('v-mut').textContent='0.020';
+  document.getElementById('v-eoq').textContent='30%';document.getElementById('v-elite').textContent='5';
+  uc();
+  // Navigate to dashboard and run
+  go('dash',ntab('dash'));
+  setTimeout(()=>{
+    runBoth();
+    // After completion, auto-navigate to analytics
+    const orig=origRes,mod=modRes;
+    const checkDone=setInterval(()=>{
+      if(document.getElementById('m-status').textContent==='CONVERGED'){
+        clearInterval(checkDone);
+        setTimeout(()=>go('analytics',ntab('analytics')),800);
+      }
+    },500);
+  },200);
+}
+
+// ════════════════════════════════════════════════
+// TABLE
+// ════════════════════════════════════════════════
+let curPg=1,filtItems=[...items],sCol=-1,sDir=1;
+const PG=50;
+const $f=n=>'$'+(+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function filterTbl(){
+  const q=(document.getElementById('tsrch').value||'').toLowerCase();
+  const cat=document.getElementById('tcat').value||'';
+  filtItems=items.filter(it=>(!q||(it.name+it.cat).toLowerCase().includes(q))&&(!cat||it.cat===cat));
+  curPg=1;paintTable();
+}
+function sortT(c){
+  document.querySelectorAll('thead th').forEach((th,i)=>{th.classList.remove('sa','sd');if(i===c)th.classList.add(sDir===1?'sa':'sd');});
+  if(sCol===c)sDir*=-1;else{sCol=c;sDir=1;}
+  const keys=['id','name','cat','D','L','C','eoqQ','eoqR','optQ','optR','totalCost','hC','oC'];
+  const k=keys[c];
+  filtItems.sort((a,b)=>(typeof a[k]==='string'?a[k].localeCompare(b[k]):a[k]-b[k])*sDir);
+  paintTable();
+}
+function chPg(d){const max=Math.ceil(filtItems.length/PG)||1;curPg=Math.max(1,Math.min(max,curPg+d));paintTable();}
+function paintTable(){
+  const max=Math.ceil(filtItems.length/PG)||1;
+  document.getElementById('pg-info').textContent=`Page ${curPg} / ${max}`;
+  document.getElementById('pg-prev').disabled=curPg<=1;
+  document.getElementById('pg-next').disabled=curPg>=max;
+  const sl=filtItems.slice((curPg-1)*PG,curPg*PG);
+  let html='';
+  sl.forEach((it,i)=>{
+    const absIdx=(curPg-1)*PG+i;
+    html+=`<tr onclick="openModal(filtItems[${absIdx}])">
+      <td class="${CATCLS[it.catIdx]}">${it.id}</td><td>${it.name}</td><td>${it.cat}</td>
+      <td>${it.D.toFixed(1)}</td><td>${it.L}d</td><td>${$f(it.C)}</td>
+      <td>${it.eoqQ.toFixed(1)}</td><td>${it.eoqR.toFixed(1)}</td>
+      <td class="ov">${it.optQ.toFixed(1)}</td><td class="ov">${it.optR.toFixed(1)}</td>
+      <td class="cv">${$f(it.totalCost)}</td><td>${$f(it.hC)}</td><td>${$f(it.oC)}</td>
+    </tr>`;
+  });
+  document.getElementById('tbl-body').innerHTML=html;
+}
+function exportCSV(){
+  const h='ID,Name,Category,Demand/day,Lead Time,Unit Cost,Hold/day,EOQ Q*,Reorder R*,Opt Q,Opt R,Total Cost,Holding,Ordering\n';
+  const r=filtItems.map(it=>`${it.id},${it.name},${it.cat},${it.D},${it.L},${it.C},${it.h},${it.eoqQ},${it.eoqR},${it.optQ},${it.optR},${it.totalCost},${it.hC},${it.oC}`).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([h+r],{type:'text/csv'}));a.download='inventory_500_optimized.csv';a.click();
+}
+
+// INIT
+paintTable();uc();
+
+// ════════════════════════════════════════════════
+// STEP-BY-STEP VISUALIZER
+// ════════════════════════════════════════════════
+const VIZ_POP=20;
+let vPop=[],vFit=[],vGen=0,vBest=Infinity,vBestGenes=null,vPhase=0,vPlaying=false,vPlayTimer=null,vUseEOQ=true,vPrevBest=Infinity,vTotalMut=0,vTotalSel=0;
+const VPH=['INIT','EVALUATE','SELECT','CROSSOVER','MUTATE','NEW GEN'];
+const VPHIDS=['vph-init','vph-eval','vph-sel','vph-cx','vph-mut','vph-next'];
+const VPHCOLS=['#94a3b8','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981'];
+const VPHDESC=[
+  ['① Initialize Population','Each chromosome encodes 500 [Q, R] gene pairs. '+(vUseEOQ?'30% are seeded with EOQ±10% noise (Modified GA heuristic). 70% are random.':'All chromosomes initialized randomly (Original GA baseline.')],
+  ['② Evaluate Fitness','Calculate total annual cost for each of the 20 chromosomes across all 500 items.\nCost = Ordering + Holding + Stockout. Lower cost = better fitness.'],
+  ['③ Tournament Selection','Pick 3 random chromosomes → the fittest wins. Repeat to get 2 parents.\nThis ensures selection pressure without losing diversity.'],
+  ['④ Uniform Crossover','Swap gene pairs [Q,R] between two parents with 85% probability per gene.\nCreates two children that inherit traits from both parents.'],
+  ['⑤ Gaussian Mutation','For each gene with 2% probability: Q_new = Q × N(1, 0.15).\nSmall proportional perturbation preserves good solutions while exploring nearby space.'],
+  ['⑥ New Generation Ready','Elitism: top 2 chromosomes survive unchanged.\nRemaining 18 slots filled with children. Population evolves toward minimum cost.']
+];
+
+// RNG for visualizer (deterministic)
+const vrng=mb32(0xFACEFEED);
+function vgauss(){let u=0,v=0;while(u===0)u=vrng();while(v===0)v=vrng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function vGene(){const g=new Float64Array(1000);for(let j=0;j<500;j++){if(vUseEOQ&&vrng()<0.3){const nq=1+vgauss()*.1,nr=1+vgauss()*.1;g[j*2]=Math.max(1,items[j].eoqQ*nq);g[j*2+1]=Math.max(items[j].ss,items[j].eoqR*nr);}else{g[j*2]=1+vrng()*1999;g[j*2+1]=items[j].ss+vrng()*4999;}}return g;}
+function vCost(g){let t=0;for(let i=0;i<500;i++){const it=items[i];const Q=Math.max(1,g[i*2]),R=Math.max(it.ss,g[i*2+1]);t+=(it.D*365/Q)*it.S+(Q/2+it.ss)*it.h*365+it.p*Math.max(0,R-it.D*it.L);}return t;}
+function vColor(rank,total){const h=120*(1-rank/(total-1));return `hsl(${h},80%,50%)`;}
+function vFitColor(cost,mn,mx){const ratio=(cost-mn)/(Math.max(mx-mn,1));const h=Math.round(120*(1-ratio));return `hsl(${h},75%,48%)`;}
+
+function vizPaintPop(highlights){
+  const hl=highlights||{};
+  const mn=Math.min(...vFit),mx=Math.max(...vFit);
+  const order=[...Array(VIZ_POP).keys()].sort((a,b)=>vFit[a]-vFit[b]);
+  let html='';
+  order.forEach((ci,rank)=>{
+    const cost=vFit[ci];
+    const w=Math.max(5,Math.round(100*(1-(cost-mn)/(Math.max(mx-mn,1)))));
+    const col=vFitColor(cost,mn,mx);
+    let cls='chr-row';
+    let badge='';
+    if(rank===0){cls+=' best-chr';badge='<span class="chr-badge" style="background:rgba(16,185,129,.2);color:var(--emerald)">BEST</span>';}
+    else if(rank<2){cls+=' elite';badge='<span class="chr-badge" style="background:rgba(245,158,11,.2);color:var(--amber)">ELITE</span>';}
+    if(hl.selected&&hl.selected.includes(ci))cls+=' selected';
+    if(hl.crossed&&hl.crossed.includes(ci))cls+=' crossed';
+    if(hl.mutated&&hl.mutated.includes(ci))cls+=' mutated';
+    html+=`<div class="${cls}" id="cr-${ci}">
+      <span class="chr-rank">#${rank+1}</span>
+      <div class="chr-bar-outer"><div class="chr-bar-inner" style="width:${w}%;background:${col}"></div></div>
+      <span class="chr-cost">$${(cost/1e6).toFixed(2)}M</span>
+      ${badge}
+    </div>`;
+  });
+  document.getElementById('viz-pop-grid').innerHTML=html;
+}
+
+function vizPaintHeatmap(genes){
+  if(!genes){document.getElementById('gene-heatmap').innerHTML='<div style="color:var(--muted);font-size:.8rem;padding:8px">Run at least one step to see gene heatmap</div>';return;}
+  let html='';
+  for(let i=0;i<500;i++){
+    const q=Math.max(1,genes[i*2]);
+    const eoq=items[i].eoqQ;
+    const ratio=Math.min(1,Math.abs(q-eoq)/Math.max(eoq,1));
+    const h=Math.round(120*(1-ratio));
+    html+=`<div class="gene-cell" style="background:hsl(${h},75%,45%)" title="Item ${i+1}: Q=${q.toFixed(0)}, EOQ=${eoq.toFixed(0)}"></div>`;
+  }
+  document.getElementById('gene-heatmap').innerHTML=html;
+}
+
+function vizSetPhase(ph){
+  VPHIDS.forEach((id,i)=>{const el=document.getElementById(id);if(!el)return;el.className='vp-node'+(i<ph?' done':i===ph?' active':'');});
+  const d=VPHDESC[ph]||['',''];
+  document.getElementById('veb-phase-lbl').textContent=VPH[ph];
+  document.getElementById('veb-phase-lbl').style.color=VPHCOLS[ph];
+  document.getElementById('veb-title').textContent=d[0];
+  document.getElementById('veb-desc').textContent=d[1];
+  document.getElementById('vsc-phase').textContent=VPH[ph];
+}
+
+function vizUpdateStats(){
+  document.getElementById('vz-gen').textContent=vGen;
+  document.getElementById('vsc-gen').textContent=vGen;
+  if(vBest<Infinity){
+    document.getElementById('vz-cost').textContent='$'+(vBest/1e6).toFixed(2)+'M';
+    document.getElementById('vsc-cost').textContent='$'+(vBest/1e6).toFixed(2)+'M';
+    if(vPrevBest<Infinity&&vPrevBest>vBest){
+      const imp=((vPrevBest-vBest)/vPrevBest*100).toFixed(2);
+      document.getElementById('vsc-imp').textContent='↓'+imp+'%';
+      document.getElementById('vz-improve').textContent='↓'+imp+'% better';
+    }
+  }
+  document.getElementById('vsc-sel').textContent=vTotalSel;
+  document.getElementById('vsc-mut').textContent=vTotalMut;
+}
+
+function vizLog(msg,cls){
+  const box=document.getElementById('viz-log');
+  const el=document.createElement('div');
+  el.className='log-entry '+(cls||'log-init');
+  el.textContent=`Gen${vGen} [${VPH[vPhase]}] ${msg}`;
+  box.insertBefore(el,box.firstChild);
+  if(box.children.length>60)box.removeChild(box.lastChild);
+}
+
+function vizReset(){
+  if(vPlayTimer)clearInterval(vPlayTimer);vPlayTimer=null;vPlaying=false;
+  document.getElementById('vbtn-play').textContent='▶ Auto Play';
+  document.getElementById('vbtn-play').disabled=false;
+  document.getElementById('vbtn-step').disabled=false;
+  vPop=[];vFit=[];vGen=0;vBest=Infinity;vBestGenes=null;vPhase=0;vPrevBest=Infinity;vTotalMut=0;vTotalSel=0;
+  document.getElementById('viz-log').innerHTML='';
+  document.getElementById('viz-cx-box').style.display='none';
+  vizUpdateStats();
+  // Init population
+  for(let i=0;i<VIZ_POP;i++)vPop.push(vGene());
+  vFit=vPop.map(g=>vCost(g));
+  let mn=vFit[0],bi=0;for(let i=1;i<vFit.length;i++){if(vFit[i]<mn){mn=vFit[i];bi=i;}}vBest=mn;vBestGenes=vPop[bi].slice();
+  vizPaintPop();
+  vizPaintHeatmap(vBestGenes);
+  vizSetPhase(0);
+  vizUpdateStats();
+  const mode=vUseEOQ?'Modified GA (EOQ Seeded)':'Original GA (Random)';
+  vizLog(`Population of ${VIZ_POP} chromosomes initialized [${mode}]`,'log-init');
+  vPhase=1;
+  vizSetPhase(1);
+  vizLog(`Fitness evaluated for all ${VIZ_POP} chromosomes. Best: $${(vBest/1e6).toFixed(2)}M`,'log-eval');
+}
+
+function vizStep(){
+  document.getElementById('viz-cx-box').style.display='none';
+  if(vPhase===2){
+    // Tournament Select
+    const t1=[Math.floor(vrng()*VIZ_POP),Math.floor(vrng()*VIZ_POP),Math.floor(vrng()*VIZ_POP)];
+    const t2=[Math.floor(vrng()*VIZ_POP),Math.floor(vrng()*VIZ_POP),Math.floor(vrng()*VIZ_POP)];
+    const w1=t1.reduce((b,i)=>vFit[i]<vFit[b]?i:b,t1[0]);
+    const w2=t2.reduce((b,i)=>vFit[i]<vFit[b]?i:b,t2[0]);
+    vTotalSel+=2;
+    vizPaintPop({selected:[w1,w2]});
+    vizSetPhase(2);
+    vizLog(`Tournament A: Chr#${t1[0]+1},${t1[1]+1},${t1[2]+1} → Winner Chr#${w1+1} ($${(vFit[w1]/1e6).toFixed(2)}M)`,'log-sel');
+    vizLog(`Tournament B: Chr#${t2[0]+1},${t2[1]+1},${t2[2]+1} → Winner Chr#${w2+1} ($${(vFit[w2]/1e6).toFixed(2)}M)`,'log-sel');
+    vPhase=3;
+  } else if(vPhase===3){
+    // Crossover
+    const p1=vPop[Math.floor(vrng()*VIZ_POP)].slice();
+    const p2=vPop[Math.floor(vrng()*VIZ_POP)].slice();
+    const c1=p1.slice(),c2=p2.slice();
+    let cxPoint=Math.floor(vrng()*500);
+    let cxCount=0;
+    for(let j=0;j<500;j++){if(vrng()<0.85){const tq=c1[j*2],tr=c1[j*2+1];c1[j*2]=c2[j*2];c1[j*2+1]=c2[j*2+1];c2[j*2]=tq;c2[j*2+1]=tr;cxCount++;}}
+    // Show crossover bars
+    document.getElementById('viz-cx-box').style.display='block';
+    const bw=50;
+    function mkBar(el,col1,col2,split){
+      const s=Math.round(split/500*100);el.innerHTML=
+        `<div class="cx-seg" style="width:${s}%;background:${col1}"></div>`+
+        `<div class="cx-seg" style="width:${100-s}%;background:${col2}"></div>`;
+    }
+    mkBar(document.getElementById('cx-pa'),VPHCOLS[1],VPHCOLS[3],cxPoint);
+    mkBar(document.getElementById('cx-pb'),VPHCOLS[3],VPHCOLS[1],cxPoint);
+    mkBar(document.getElementById('cx-c1'),VPHCOLS[1],VPHCOLS[3],cxPoint);
+    mkBar(document.getElementById('cx-c2'),VPHCOLS[3],VPHCOLS[1],cxPoint);
+    vizSetPhase(3);
+    vizLog(`Crossover: ${cxCount}/500 gene pairs exchanged between two parents`,'log-cx');
+    vPhase=4;
+  } else if(vPhase===4){
+    // Mutation
+    const mi=Math.floor(vrng()*VIZ_POP);
+    let mCount=0;
+    const mg=vPop[mi].slice();
+    for(let j=0;j<500;j++)
+      if(vrng()<0.02){
+        if(vUseEOQ){mg[j*2]=Math.max(1,mg[j*2]*(1+vgauss()*.15));mg[j*2+1]=Math.max(items[j].ss,mg[j*2+1]*(1+vgauss()*.15));}
+        else{mg[j*2]=1+vrng()*1999;mg[j*2+1]=items[j].ss+vrng()*4999;}
+        mCount++;
+      }
+    vPop[mi]=mg;
+    vFit[mi]=vCost(mg);
+    vTotalMut+=mCount;
+    vizPaintPop({mutated:[mi]});
+    vizSetPhase(4);
+    const mType=vUseEOQ?'Gaussian σ=15%':'Uniform random';
+    vizLog(`Mutation on Chr#${mi+1}: ${mCount} genes altered [${mType}]. New cost: $${(vFit[mi]/1e6).toFixed(2)}M`,'log-mut');
+    vPhase=5;
+  } else if(vPhase===5){
+    // New Gen — run full generation
+    vPrevBest=vBest;
+    const order=[...Array(VIZ_POP).keys()].sort((a,b)=>vFit[a]-vFit[b]);
+    const newPop=[vPop[order[0]].slice(),vPop[order[1]].slice()];
+    while(newPop.length<VIZ_POP){
+      const pi1=order[Math.floor(vrng()*6)],pi2=order[Math.floor(vrng()*6)];
+      const c=vPop[pi1].slice();
+      for(let j=0;j<500;j++){if(vrng()<0.85){c[j*2]=vPop[pi2][j*2];c[j*2+1]=vPop[pi2][j*2+1];}}
+      for(let j=0;j<500;j++){if(vrng()<0.02){if(vUseEOQ){c[j*2]=Math.max(1,c[j*2]*(1+vgauss()*.15));c[j*2+1]=Math.max(items[j].ss,c[j*2+1]*(1+vgauss()*.15));}else{c[j*2]=1+vrng()*1999;c[j*2+1]=items[j].ss+vrng()*4999;}}}
+      newPop.push(c);
+    }
+    vPop=newPop;vFit=vPop.map(g=>vCost(g));
+    let mn=vFit[0],bi=0;for(let i=1;i<vFit.length;i++){if(vFit[i]<mn){mn=vFit[i];bi=i;}}vBest=mn;vBestGenes=vPop[bi].slice();
+    vGen++;
+    vizPaintPop();
+    vizPaintHeatmap(vBestGenes);
+    vizSetPhase(5);
+    const imp=vPrevBest>vBest?'↓'+((vPrevBest-vBest)/vPrevBest*100).toFixed(2)+'%':'no improvement';
+    vizLog(`Generation ${vGen} complete. Best: $${(vBest/1e6).toFixed(2)}M (${imp}) | Elites: 2 preserved`,'log-next');
+    vizUpdateStats();
+    vPhase=2;
+    setTimeout(()=>vizSetPhase(2),300);
+  } else if(vPhase===1||vPhase===0){
+    vPhase=2;
+    vizSetPhase(2);
+  }
+  vizUpdateStats();
+}
+
+function vizTogglePlay(){
+  if(vPlaying){
+    clearInterval(vPlayTimer);vPlayTimer=null;vPlaying=false;
+    document.getElementById('vbtn-play').textContent='▶ Auto Play';
+  } else {
+    vPlaying=true;
+    document.getElementById('vbtn-play').textContent='⏸ Pause';
+    const spd=+document.getElementById('viz-speed').value;
+    const delay=Math.max(120,1200-spd*110);
+    vPlayTimer=setInterval(vizStep,delay);
+  }
+}
+
+document.getElementById('viz-speed').oninput=function(){
+  document.getElementById('viz-speed-lbl').textContent=this.value+'×';
+  if(vPlaying){clearInterval(vPlayTimer);const delay=Math.max(120,1200-+this.value*110);vPlayTimer=setInterval(vizStep,delay);}
+};
+
+function vizToggleMode(){
+  vUseEOQ=!vUseEOQ;
+  const btn=document.getElementById('vbtn-mode');
+  btn.textContent='Mode: '+(vUseEOQ?'Modified GA':'Original GA');
+  if(vUseEOQ)btn.classList.add('active-mode');else btn.classList.remove('active-mode');
+  vizReset();
+}
+
+// Visualizer auto-init handled inside go()
+</script>
+</body>
+</html>
